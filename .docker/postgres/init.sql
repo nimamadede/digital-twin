@@ -1,0 +1,4 @@
+-- Digital Twin DB init (optional extensions)
+-- gen_random_uuid() is built-in in PostgreSQL 13+
+-- Uncomment if you need extra extensions:
+-- CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

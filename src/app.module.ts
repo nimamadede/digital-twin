@@ -17,6 +17,7 @@ import { SceneModule } from './scene/scene.module';
 import { StorageModule } from './storage/storage.module';
 import { StyleModule } from './style/style.module';
 import { ReplyModule } from './reply/reply.module';
+import { MessageModule } from './message/message.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -60,6 +61,7 @@ import { AppService } from './app.service';
     StorageModule,
     StyleModule,
     ReplyModule,
+    MessageModule,
     HealthModule,
   ],
   controllers: [AppController],

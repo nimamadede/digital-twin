@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { Contact } from '../../contact/entities/contact.entity';
+import { ReplyRecord } from '../../reply/entities/reply-record.entity';
 
 @Entity('messages')
 @Index('idx_messages_user_id', ['userId'])
@@ -29,12 +30,12 @@ export class Message {
   @JoinColumn({ name: 'user_id' })
   user!: User;
 
-  @Column({ type: 'uuid', nullable: true })
-  contactId!: string | null;
+  @Column({ type: 'uuid' })
+  contactId!: string;
 
-  @ManyToOne(() => Contact, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
+  @ManyToOne(() => Contact, { onDelete: 'CASCADE', onUpdate: 'CASCADE' })
   @JoinColumn({ name: 'contact_id' })
-  contact!: Contact | null;
+  contact!: Contact;
 
   @Column({ type: 'varchar', length: 10 })
   direction!: string;
@@ -57,9 +58,9 @@ export class Message {
   @Column({ type: 'uuid', nullable: true })
   replyRecordId!: string | null;
 
-  @ManyToOne('ReplyRecord', { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
+  @ManyToOne(() => ReplyRecord, { onDelete: 'SET NULL', onUpdate: 'CASCADE' })
   @JoinColumn({ name: 'reply_record_id' })
-  replyRecord!: unknown;
+  replyRecord!: ReplyRecord | null;
 
   @Column({ type: 'jsonb', nullable: true })
   metadata!: Record<string, unknown> | null;

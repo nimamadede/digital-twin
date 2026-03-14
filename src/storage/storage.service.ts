@@ -160,6 +160,77 @@ export class StorageService implements OnModuleInit {
   }
 
   /**
+   * Upload from buffer (e.g. export file). All operations scoped by userId.
+   */
+  async uploadFromBuffer(
+    userId: string,
+    buffer: Buffer,
+    fileName: string,
+    mimeType: string,
+    purpose: (typeof ALLOWED_PURPOSES)[number],
+    expiresIn?: number,
+  ): Promise<FileUploadResult> {
+    if (!buffer?.length) {
+      throw new BadRequestException('Buffer is empty');
+    }
+    if (buffer.length > MAX_FILE_SIZE_BYTES) {
+      throw new BadRequestException(
+        `File size exceeds limit (max ${MAX_FILE_SIZE_BYTES / 1024 / 1024}MB)`,
+      );
+    }
+    if (!ALLOWED_PURPOSES.includes(purpose)) {
+      throw new BadRequestException(`Invalid purpose: ${purpose}`);
+    }
+
+    const id = randomUUID();
+    const ext = fileName?.includes('.')
+      ? fileName.slice(fileName.lastIndexOf('.'))
+      : '';
+    const safeName = fileName
+      ?.replace(/[^a-zA-Z0-9._-]/g, '_')
+      .slice(0, 200) ?? 'file';
+    const fileKey = `users/${userId}/${id}${ext || ''}`;
+    const size = buffer.length;
+
+    await this.client.putObject(
+      this.bucket,
+      fileKey,
+      buffer,
+      size,
+      { 'Content-Type': mimeType },
+    );
+
+    const expiresAt = expiresIn
+      ? new Date(Date.now() + expiresIn * 1000)
+      : null;
+
+    const entity = this.fileUploadRepo.create({
+      id,
+      userId,
+      fileName: safeName,
+      fileKey,
+      fileSize: String(size),
+      mimeType,
+      purpose,
+      status: 'uploaded',
+      expiresAt,
+    });
+    const saved = await this.fileUploadRepo.save(entity);
+
+    return {
+      id: saved.id,
+      fileName: saved.fileName,
+      fileKey: saved.fileKey,
+      fileSize: size,
+      mimeType: saved.mimeType,
+      purpose: saved.purpose,
+      status: saved.status,
+      expiresAt: saved.expiresAt,
+      createdAt: saved.createdAt,
+    };
+  }
+
+  /**
    * Get presigned download URL. Enforces user_id isolation.
    */
   async getPresignedDownloadUrl(

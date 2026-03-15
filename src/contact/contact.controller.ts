@@ -10,17 +10,23 @@ import {
   HttpCode,
   HttpStatus,
   ParseUUIDPipe,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
   ApiBearerAuth,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { ContactService } from './contact.service';
 import { ContactQueryDto } from './dto/contact-query.dto';
 import { UpdateContactDto } from './dto/update-contact.dto';
 import { BatchUpdateContactsDto } from './dto/batch-update-contacts.dto';
+import { ImportContactsDto } from './dto/import-contacts.dto';
 import { SyncContactsDto } from './dto/sync-contacts.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
@@ -142,6 +148,42 @@ export class ContactController {
     @Param('contactId', ParseUUIDPipe) contactId: string,
   ) {
     return this.contactService.removeFromBlacklist(userId, contactId);
+  }
+
+  @Post('import')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Import contacts from CSV or JSON file' })
+  @ApiResponse({ status: 200, description: 'Import result with created/skipped counts' })
+  async importContacts(
+    @CurrentUser('sub') userId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() dto: ImportContactsDto,
+  ) {
+    if (!file || !file.buffer?.length) {
+      throw new BadRequestException('File is required');
+    }
+    const ext = file.originalname.split('.').pop()?.toLowerCase();
+    if (!ext || !['csv', 'json'].includes(ext)) {
+      throw new BadRequestException('Only .csv and .json files are supported');
+    }
+    const content = file.buffer.toString('utf-8');
+    const rows = ext === 'csv'
+      ? this.contactService.parseCSV(content)
+      : this.contactService.parseJSON(content);
+
+    if (!rows.length) {
+      throw new BadRequestException('File contains no valid contact data');
+    }
+
+    const result = await this.contactService.importContacts(
+      userId,
+      dto.platform,
+      rows,
+      dto.defaultLevel,
+    );
+    return { message: `导入完成: 新增${result.created}, 跳过${result.skipped}`, data: result };
   }
 
   @Post('sync')

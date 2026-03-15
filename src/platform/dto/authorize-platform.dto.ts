@@ -1,7 +1,7 @@
 import { IsString, IsIn } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
-const PLATFORM_VALUES = ['wechat', 'douyin'] as const;
+const PLATFORM_VALUES = ['wechat', 'wecom', 'douyin'] as const;
 const AUTH_TYPE_VALUES = ['qrcode', 'token'] as const;
 
 export class AuthorizePlatformDto {

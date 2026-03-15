@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { ContactService } from './contact.service';
 import { Contact } from './entities/contact.entity';
@@ -35,6 +35,7 @@ describe('ContactService', () => {
   const mockRepo = {
     findOne: jest.fn(),
     save: jest.fn(),
+    create: jest.fn((dto) => ({ ...dto } as Contact)),
     createQueryBuilder: jest.fn(function (this: unknown) {
       return {
         update: jest.fn().mockReturnThis(),
@@ -225,6 +226,112 @@ describe('ContactService', () => {
       expect(result).toHaveProperty('taskId');
       expect(result).toHaveProperty('estimatedCount', 200);
       expect(typeof result.taskId).toBe('string');
+    });
+  });
+
+  describe('parseCSV', () => {
+    it('should parse valid CSV with header', () => {
+      const csv = 'nickname,platformId,remark,tags,level\n张三,wxid_001,同事,VIP;客户,important\n李四,wxid_002,,朋友,normal';
+      const rows = service.parseCSV(csv);
+
+      expect(rows).toHaveLength(2);
+      expect(rows[0].nickname).toBe('张三');
+      expect(rows[0].platformId).toBe('wxid_001');
+      expect(rows[0].remark).toBe('同事');
+      expect(rows[0].tags).toEqual(['VIP', '客户']);
+      expect(rows[0].level).toBe('important');
+      expect(rows[1].nickname).toBe('李四');
+    });
+
+    it('should handle quoted CSV fields', () => {
+      const csv = 'nickname,remark\n"张,三","备注""引号"';
+      const rows = service.parseCSV(csv);
+
+      expect(rows[0].nickname).toBe('张,三');
+      expect(rows[0].remark).toBe('备注"引号');
+    });
+
+    it('should throw when nickname column is missing', () => {
+      const csv = 'name,platformId\n张三,wxid_001';
+      expect(() => service.parseCSV(csv)).toThrow(BadRequestException);
+    });
+
+    it('should return empty array for single-line CSV (header only)', () => {
+      const csv = 'nickname,platformId';
+      const rows = service.parseCSV(csv);
+      expect(rows).toHaveLength(0);
+    });
+  });
+
+  describe('parseJSON', () => {
+    it('should parse valid JSON array', () => {
+      const json = JSON.stringify([
+        { nickname: '张三', platformId: 'wxid_001', tags: ['VIP'] },
+        { nickname: '李四' },
+      ]);
+      const rows = service.parseJSON(json);
+
+      expect(rows).toHaveLength(2);
+      expect(rows[0].nickname).toBe('张三');
+      expect(rows[0].platformId).toBe('wxid_001');
+      expect(rows[0].tags).toEqual(['VIP']);
+      expect(rows[1].nickname).toBe('李四');
+    });
+
+    it('should throw on invalid JSON', () => {
+      expect(() => service.parseJSON('not json')).toThrow(BadRequestException);
+    });
+
+    it('should throw when JSON is not an array', () => {
+      expect(() => service.parseJSON('{"nickname":"张三"}')).toThrow(BadRequestException);
+    });
+  });
+
+  describe('importContacts', () => {
+    it('should create new contacts and skip duplicates', async () => {
+      (repo.findOne as jest.Mock)
+        .mockResolvedValueOnce(null)       // first: not found → create
+        .mockResolvedValueOnce(mockContact); // second: found → skip
+      (repo.save as jest.Mock).mockImplementation((c) => Promise.resolve(c));
+
+      const rows = [
+        { nickname: '新联系人', platformId: 'wxid_new' },
+        { nickname: '张三', platformId: 'wxid_xxx' },
+      ];
+      const result = await service.importContacts(userId, 'wechat', rows);
+
+      expect(result.total).toBe(2);
+      expect(result.created).toBe(1);
+      expect(result.skipped).toBe(1);
+      expect(result.errors).toHaveLength(0);
+      expect(repo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId,
+          platform: 'wechat',
+          nickname: '新联系人',
+          platformId: 'wxid_new',
+        }),
+      );
+    });
+
+    it('should record error for rows without nickname', async () => {
+      const rows = [{ nickname: '' }, { nickname: '  ' }];
+      const result = await service.importContacts(userId, 'wechat', rows);
+
+      expect(result.errors).toHaveLength(2);
+      expect(result.created).toBe(0);
+      expect(repo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('should use defaultLevel when row has no level', async () => {
+      (repo.findOne as jest.Mock).mockResolvedValue(null);
+      (repo.save as jest.Mock).mockImplementation((c) => Promise.resolve(c));
+
+      await service.importContacts(userId, 'wechat', [{ nickname: '测试' }], 'important');
+
+      expect(repo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ level: 'important' }),
+      );
     });
   });
 });

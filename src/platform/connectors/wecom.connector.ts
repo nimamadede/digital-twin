@@ -7,9 +7,12 @@ import type {
 } from './base.connector';
 import { BaseConnector } from './base.connector';
 
-export interface DouyinConfig {
-  clientKey: string;
-  clientSecret: string;
+export interface WeComConfig {
+  corpId: string;
+  agentId: string;
+  secret: string;
+  token: string;
+  encodingAESKey: string;
   callbackUrl: string;
 }
 
@@ -19,6 +22,7 @@ const pendingAuths = new Map<
     userId: string;
     status: AuthStatusResult['status'];
     createdAt: number;
+    oauthUrl?: string;
   }
 >();
 
@@ -34,36 +38,37 @@ const listenerStates = new Map<
 >();
 
 const AUTH_EXPIRES_MS = 300_000;
-const MOCK_CONFIRM_AFTER_MS = 3000;
+const MOCK_CONFIRM_AFTER_MS = 2000;
 
-export class DouyinConnector extends BaseConnector {
-  private readonly logger = new Logger(DouyinConnector.name);
-  readonly platform = 'douyin';
+export class WeComConnector extends BaseConnector {
+  private readonly logger = new Logger(WeComConnector.name);
+  readonly platform = 'wecom';
 
-  private config: DouyinConfig | null = null;
+  private config: WeComConfig | null = null;
 
-  setConfig(config: DouyinConfig): void {
+  setConfig(config: WeComConfig): void {
     this.config = config;
   }
 
   getOAuthUrl(state: string): string {
     if (!this.config) return '';
-    return `https://open.douyin.com/platform/oauth/connect/?client_key=${this.config.clientKey}&response_type=code&scope=user_info&redirect_uri=${encodeURIComponent(this.config.callbackUrl)}&state=${state}`;
+    return `https://open.work.weixin.qq.com/wwopen/sso/qrConnect?appid=${this.config.corpId}&agentid=${this.config.agentId}&redirect_uri=${encodeURIComponent(this.config.callbackUrl)}&state=${state}`;
   }
 
   async authorize(userId: string, authType: string): Promise<AuthorizeResult> {
     const authId = uuidv4();
-    const qrcodeUrl = authType === 'qrcode' ? this.getOAuthUrl(authId) : undefined;
+    const oauthUrl = authType === 'qrcode' ? this.getOAuthUrl(authId) : undefined;
 
     pendingAuths.set(authId, {
       userId,
       status: 'waiting_scan',
       createdAt: Date.now(),
+      oauthUrl,
     });
 
     return {
       authId,
-      qrcodeUrl,
+      qrcodeUrl: oauthUrl,
       expiresIn: AUTH_EXPIRES_MS / 1000,
       status: 'waiting_scan',
     };
@@ -80,7 +85,8 @@ export class DouyinConnector extends BaseConnector {
       return { authId, status: 'expired' };
     }
 
-    if (pending.status === 'waiting_scan' && elapsed > 800) {
+    // Mock progression for dev
+    if (pending.status === 'waiting_scan' && elapsed > 500) {
       pending.status = 'scanned';
     }
     if (pending.status === 'scanned' && elapsed > MOCK_CONFIRM_AFTER_MS) {
@@ -104,14 +110,14 @@ export class DouyinConnector extends BaseConnector {
     }
     state.isListening = true;
     state.startedAt = state.startedAt ?? new Date();
-    this.logger.log(`Douyin listener started for ${platformAuthId}`);
+    this.logger.log(`WeCom listener started for ${platformAuthId}`);
   }
 
   async stopListener(platformAuthId: string): Promise<void> {
     const state = listenerStates.get(platformAuthId);
     if (state) {
       state.isListening = false;
-      this.logger.log(`Douyin listener stopped for ${platformAuthId}`);
+      this.logger.log(`WeCom listener stopped for ${platformAuthId}`);
     }
   }
 
@@ -130,14 +136,54 @@ export class DouyinConnector extends BaseConnector {
   }
 
   /**
-   * Exchange authorization code for access token.
-   * POST https://open.douyin.com/oauth/access_token/
+   * Handle WeCom callback URL verification (GET request).
+   * WeCom sends msg_signature, timestamp, nonce, echostr for verification.
    */
-  async exchangeCodeForToken(code: string): Promise<{ accessToken: string; openId: string } | null> {
+  verifyCallback(msgSignature: string, timestamp: string, nonce: string, echostr: string): string {
+    // TODO: Implement actual signature verification with token + encodingAESKey
+    // For now return echostr for dev/testing
+    this.logger.log(`WeCom callback verification: nonce=${nonce}`);
+    return echostr;
+  }
+
+  /**
+   * Handle incoming WeCom message callback (POST request).
+   * Decrypts and parses the XML message body.
+   */
+  async handleMessageCallback(
+    msgSignature: string,
+    timestamp: string,
+    nonce: string,
+    encryptedBody: string,
+  ): Promise<{ msgType: string; content: string; fromUser: string; toUser: string } | null> {
+    // TODO: Implement actual XML decryption with AES
+    // Stub: parse basic fields for dev
+    this.logger.log(`WeCom message callback received, nonce=${nonce}`);
+    return null;
+  }
+
+  /**
+   * Get WeCom access token using corpId + secret.
+   * In production, cache this token (expires in 7200s).
+   */
+  async getAccessToken(): Promise<string | null> {
     if (!this.config) return null;
+    // TODO: Call https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=ID&corpsecret=SECRET
+    // For now return mock token
+    this.logger.warn('WeCom getAccessToken: using mock token (configure real credentials)');
+    return 'mock-wecom-access-token';
+  }
+
+  /**
+   * Sync contacts from WeCom department API.
+   * GET https://qyapi.weixin.qq.com/cgi-bin/user/simplelist?access_token=TOKEN&department_id=1
+   */
+  async syncDepartmentContacts(departmentId = 1): Promise<Array<{ userid: string; name: string; department: number[] }>> {
+    const token = await this.getAccessToken();
+    if (!token) return [];
     // TODO: Implement actual API call
-    this.logger.warn('Douyin exchangeCodeForToken: using mock (configure real credentials)');
-    return { accessToken: 'mock-douyin-token', openId: 'mock-open-id' };
+    this.logger.warn('WeCom syncDepartmentContacts: stub (configure real credentials)');
+    return [];
   }
 
   consumePendingAuth(authId: string): void {

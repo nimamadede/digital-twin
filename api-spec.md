@@ -15,7 +15,8 @@
 5. [联系人管理模块 (Contact)](#5-联系人管理模块)
 6. [场景模式模块 (Scene)](#6-场景模式模块)
 7. [消息记录模块 (Message)](#7-消息记录模块)
-8. [WebSocket 接口](#8-websocket-接口)
+8. [消息路由模块 (MessageRouter)](#8-消息路由模块)
+9. [WebSocket 接口](#9-websocket-接口)
 
 ---
 
@@ -1449,7 +1450,458 @@ GET /api/v1/messages/export/:taskId
 
 ---
 
-## 8. WebSocket 接口
+## 8. 消息路由模块
+
+> 系统核心调度枢纽 — 负责将平台收到的消息按规则路由至 AI 回复引擎或人工处理
+> 路由前缀: `/api/v1/router`
+> 🔒 所有接口需要认证
+
+### 8.1 获取路由仪表盘
+
+```
+GET /api/v1/router/dashboard
+```
+
+**说明:** 返回消息路由系统的实时运行状态总览。
+
+**成功响应 (200):**
+
+```json
+{
+  "code": 200,
+  "data": {
+    "status": "running",
+    "activeSceneId": "uuid-string",
+    "activeSceneName": "工作模式",
+    "today": {
+      "totalReceived": 85,
+      "autoReplied": 60,
+      "pendingReview": 5,
+      "manualReplied": 12,
+      "rejected": 3,
+      "expired": 2,
+      "blocked": 3
+    },
+    "queueDepth": 2,
+    "avgResponseTime": 3.5,
+    "connectedPlatforms": [
+      {
+        "platform": "wechat",
+        "status": "listening",
+        "messagesReceived": 85
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 8.2 获取路由日志列表
+
+```
+GET /api/v1/router/logs
+```
+
+**查询参数:**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| page | number | 页码 |
+| pageSize | number | 每页条数 |
+| contactId | string | 按联系人筛选 |
+| action | string | 按路由结果筛选: `auto_reply` / `pending_review` / `blocked` / `ignored` / `manual` |
+| sceneId | string | 按场景筛选 |
+| startDate | string | 起始日期 |
+| endDate | string | 结束日期 |
+
+**成功响应 (200):**
+
+```json
+{
+  "code": 200,
+  "data": {
+    "items": [
+      {
+        "id": "uuid-string",
+        "messageId": "uuid-string",
+        "contactId": "uuid-string",
+        "contactNickname": "张三",
+        "platform": "wechat",
+        "incomingContent": "明天有时间吗？",
+        "action": "auto_reply",
+        "reason": "whitelist_auto_approve",
+        "sceneId": "uuid-string",
+        "sceneName": "工作模式",
+        "profileId": "uuid-string",
+        "replyRecordId": "uuid-string",
+        "replySentContent": "有啊，什么事？",
+        "processingTime": 2800,
+        "steps": [
+          { "step": "receive", "result": "ok", "duration": 5 },
+          { "step": "contact_lookup", "result": "found", "duration": 12 },
+          { "step": "blacklist_check", "result": "pass", "duration": 2 },
+          { "step": "scene_match", "result": "工作模式", "duration": 8 },
+          { "step": "rule_evaluate", "result": "auto_reply", "duration": 3 },
+          { "step": "reply_generate", "result": "3 candidates", "duration": 2500 },
+          { "step": "auto_approve", "result": "approved", "duration": 5 },
+          { "step": "send", "result": "sent", "duration": 265 }
+        ],
+        "createdAt": "2026-03-14T10:00:00.000Z"
+      }
+    ],
+    "total": 85,
+    "page": 1,
+    "pageSize": 20,
+    "totalPages": 5
+  }
+}
+```
+
+---
+
+### 8.3 获取路由日志详情
+
+```
+GET /api/v1/router/logs/:logId
+```
+
+**成功响应 (200):**
+
+返回与 8.2 列表项相同的结构，但 `steps` 中包含更详细的中间数据（如场景规则匹配详情、AI prompt 摘要等）。
+
+---
+
+### 8.4 获取路由规则列表
+
+```
+GET /api/v1/router/rules
+```
+
+**说明:** 返回当前用户的所有路由规则，按优先级排序。路由规则决定收到消息后的处理策略。
+
+**成功响应 (200):**
+
+```json
+{
+  "code": 200,
+  "data": [
+    {
+      "id": "uuid-string",
+      "name": "黑名单拦截",
+      "priority": 1,
+      "isEnabled": true,
+      "type": "block",
+      "conditions": {
+        "contact": { "isBlacklist": true }
+      },
+      "action": "blocked",
+      "isSystem": true,
+      "createdAt": "2026-03-14T10:00:00.000Z"
+    },
+    {
+      "id": "uuid-string",
+      "name": "关键词拦截",
+      "priority": 2,
+      "isEnabled": true,
+      "type": "block",
+      "conditions": {
+        "message": { "containsKeywords": ["转账", "红包", "借钱"] }
+      },
+      "action": "blocked",
+      "actionConfig": {
+        "notifyUser": true
+      },
+      "isSystem": false,
+      "createdAt": "2026-03-14T10:00:00.000Z"
+    },
+    {
+      "id": "uuid-string",
+      "name": "重要联系人优先审核",
+      "priority": 10,
+      "isEnabled": true,
+      "type": "route",
+      "conditions": {
+        "contact": { "level": "important" },
+        "scene": { "autoApprove": false }
+      },
+      "action": "pending_review",
+      "actionConfig": {
+        "notifyUser": true,
+        "timeout": 300,
+        "timeoutAction": "auto_approve"
+      },
+      "isSystem": false,
+      "createdAt": "2026-03-14T10:00:00.000Z"
+    },
+    {
+      "id": "uuid-string",
+      "name": "白名单自动回复",
+      "priority": 20,
+      "isEnabled": true,
+      "type": "route",
+      "conditions": {
+        "contact": { "isWhitelist": true }
+      },
+      "action": "auto_reply",
+      "actionConfig": {
+        "autoApprove": true,
+        "maxDelay": 5
+      },
+      "isSystem": false,
+      "createdAt": "2026-03-14T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+### 8.5 创建路由规则
+
+```
+POST /api/v1/router/rules
+```
+
+**请求体:**
+
+```json
+{
+  "name": "工作群消息忽略",
+  "priority": 5,
+  "isEnabled": true,
+  "type": "block",
+  "conditions": {
+    "message": { "isGroup": true },
+    "platform": { "in": ["wechat"] }
+  },
+  "action": "ignored",
+  "actionConfig": {}
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| name | string | 是 | 规则名称 (2-50字符) |
+| priority | number | 是 | 优先级 (1-100，数字越小优先级越高) |
+| isEnabled | boolean | 是 | 是否启用 |
+| type | string | 是 | 规则类型: `block` / `route` / `transform` |
+| conditions | object | 是 | 匹配条件 (见下方) |
+| action | string | 是 | 路由动作: `auto_reply` / `pending_review` / `blocked` / `ignored` / `manual` |
+| actionConfig | object | 否 | 动作配置 |
+
+**conditions 结构说明:**
+
+```json
+{
+  "contact": {
+    "level": "important",        // 联系人等级匹配
+    "isWhitelist": true,         // 白名单匹配
+    "isBlacklist": false,        // 黑名单匹配
+    "tags": ["客户"]             // 标签匹配 (任一命中)
+  },
+  "message": {
+    "containsKeywords": ["转账"], // 关键词匹配 (任一命中)
+    "msgType": "text",           // 消息类型匹配
+    "isGroup": false,            // 是否群消息
+    "lengthMin": 0,              // 最小长度
+    "lengthMax": 500             // 最大长度
+  },
+  "platform": {
+    "in": ["wechat", "douyin"]   // 平台匹配
+  },
+  "time": {
+    "startTime": "09:00",        // 时间段匹配
+    "endTime": "18:00",
+    "weekdays": [1, 2, 3, 4, 5]
+  }
+}
+```
+
+**成功响应 (201):**
+
+```json
+{
+  "code": 201,
+  "message": "路由规则已创建",
+  "data": {
+    "id": "uuid-string",
+    "name": "工作群消息忽略",
+    "priority": 5
+  }
+}
+```
+
+---
+
+### 8.6 更新路由规则
+
+```
+PUT /api/v1/router/rules/:ruleId
+```
+
+**请求体:** 同 8.5 创建，所有字段均为可选。
+
+---
+
+### 8.7 删除路由规则
+
+```
+DELETE /api/v1/router/rules/:ruleId
+```
+
+**说明:** 系统内置规则 (`isSystem: true`) 不可删除，只能启用/禁用。
+
+---
+
+### 8.8 调整规则优先级
+
+```
+PUT /api/v1/router/rules/reorder
+```
+
+**请求体:**
+
+```json
+{
+  "orderedIds": ["uuid-1", "uuid-2", "uuid-3", "uuid-4"]
+}
+```
+
+**说明:** 按数组顺序重新分配优先级 (1, 2, 3, ...)。
+
+---
+
+### 8.9 模拟路由测试
+
+```
+POST /api/v1/router/simulate
+```
+
+**说明:** 不实际发送消息，仅模拟路由逻辑并返回每一步的判定结果，用于调试规则配置。
+
+**请求体:**
+
+```json
+{
+  "contactId": "uuid-string",
+  "incomingMessage": "明天下午有时间吗？",
+  "platform": "wechat",
+  "msgType": "text",
+  "simulateTime": "2026-03-14T14:30:00.000Z"
+}
+```
+
+**成功响应 (200):**
+
+```json
+{
+  "code": 200,
+  "data": {
+    "finalAction": "auto_reply",
+    "matchedRuleId": "uuid-string",
+    "matchedRuleName": "白名单自动回复",
+    "sceneId": "uuid-string",
+    "sceneName": "工作模式",
+    "profileId": "uuid-string",
+    "steps": [
+      { "step": "contact_lookup", "result": "found", "detail": { "level": "important", "isWhitelist": true } },
+      { "step": "rule_1_黑名单拦截", "result": "skip", "detail": "isBlacklist=false" },
+      { "step": "rule_2_关键词拦截", "result": "skip", "detail": "no keyword match" },
+      { "step": "rule_3_白名单自动回复", "result": "matched", "detail": "isWhitelist=true" },
+      { "step": "scene_match", "result": "工作模式", "detail": { "timeMatch": true, "weekdayMatch": true } },
+      { "step": "final_decision", "result": "auto_reply with auto_approve" }
+    ]
+  }
+}
+```
+
+---
+
+### 8.10 暂停/恢复路由
+
+```
+POST /api/v1/router/pause
+POST /api/v1/router/resume
+```
+
+**说明:** 暂停路由后，所有收到的消息只存储不处理，恢复后按队列顺序重新处理。
+
+**成功响应 (200):**
+
+```json
+{
+  "code": 200,
+  "message": "消息路由已暂停",
+  "data": {
+    "status": "paused",
+    "pausedAt": "2026-03-14T10:00:00.000Z",
+    "pendingMessages": 0
+  }
+}
+```
+
+---
+
+### 8.11 获取路由统计
+
+```
+GET /api/v1/router/stats
+```
+
+**查询参数:**
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| period | string | `day` / `week` / `month` |
+| startDate | string | 起始日期 |
+| endDate | string | 结束日期 |
+
+**成功响应 (200):**
+
+```json
+{
+  "code": 200,
+  "data": {
+    "summary": {
+      "totalProcessed": 1500,
+      "autoReplied": 1050,
+      "pendingReview": 200,
+      "manualReplied": 100,
+      "blocked": 80,
+      "ignored": 50,
+      "expired": 20,
+      "avgProcessingTime": 3200,
+      "autoApproveRate": 0.70,
+      "blockRate": 0.053
+    },
+    "byAction": [
+      { "action": "auto_reply", "count": 1050, "percentage": 0.70 },
+      { "action": "pending_review", "count": 200, "percentage": 0.133 },
+      { "action": "manual", "count": 100, "percentage": 0.067 },
+      { "action": "blocked", "count": 80, "percentage": 0.053 },
+      { "action": "ignored", "count": 50, "percentage": 0.033 },
+      { "action": "expired", "count": 20, "percentage": 0.013 }
+    ],
+    "byPlatform": [
+      { "platform": "wechat", "count": 1300 },
+      { "platform": "douyin", "count": 200 }
+    ],
+    "timeline": [
+      { "date": "2026-03-14", "received": 85, "autoReplied": 60, "blocked": 3 },
+      { "date": "2026-03-13", "received": 102, "autoReplied": 75, "blocked": 5 }
+    ],
+    "topTriggeredRules": [
+      { "ruleId": "uuid", "ruleName": "白名单自动回复", "triggerCount": 800 },
+      { "ruleId": "uuid", "ruleName": "黑名单拦截", "triggerCount": 80 }
+    ]
+  }
+}
+```
+
+---
+
+## 9. WebSocket 接口
 
 > 连接地址: `wss://<host>/ws`
 > 认证方式: 连接时传递 JWT Token

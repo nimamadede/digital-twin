@@ -89,6 +89,7 @@
 | **ContactModule** | 联系人导入、分级管理、白名单/黑名单 | F007 |
 | **SceneModule** | 场景模式 CRUD、模式切换、调度规则 | F008 |
 | **MessageModule** | 消息记录存储、历史查询、统计分析 | F009 |
+| **MessageRouterModule** | 消息路由核心、规则引擎、路由日志、路由统计 | 系统核心 |
 | **NotificationModule** | WebSocket 推送、站内消息、外部通知 | 系统级 |
 | **CommonModule** | 共享守卫、拦截器、管道、装饰器 | 系统级 |
 

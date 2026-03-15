@@ -181,9 +181,23 @@ digital-twin/
 │   │   └── gateways/
 │   │       └── notification.gateway.ts        # WebSocket Gateway
 │   │
-│   ├── message-router/               # 消息路由模块
+│   ├── message-router/               # 消息路由模块 (核心调度枢纽)
 │   │   ├── message-router.module.ts
-│   │   └── message-router.service.ts          # 消息路由核心逻辑
+│   │   ├── message-router.controller.ts       # 路由管理 API
+│   │   ├── message-router.service.ts          # 消息路由核心逻辑
+│   │   ├── dto/
+│   │   │   ├── routing-log-query.dto.ts       # 路由日志查询
+│   │   │   ├── create-routing-rule.dto.ts     # 创建路由规则
+│   │   │   ├── update-routing-rule.dto.ts     # 更新路由规则
+│   │   │   ├── reorder-rules.dto.ts           # 调整优先级
+│   │   │   └── simulate-route.dto.ts          # 模拟路由测试
+│   │   ├── entities/
+│   │   │   ├── routing-log.entity.ts          # 路由日志实体
+│   │   │   └── routing-rule.entity.ts         # 路由规则实体
+│   │   └── services/
+│   │       ├── rule-engine.service.ts         # 规则匹配引擎
+│   │       ├── route-executor.service.ts      # 路由执行器（编排各步骤）
+│   │       └── routing-stats.service.ts       # 路由统计服务
 │   │
 │   ├── audit/                        # 审计日志模块
 │   │   ├── audit.module.ts
@@ -536,7 +550,7 @@ AppModule
 │   └── 依赖: (WebSocket Gateway, EventEmitter)
 │
 ├── MessageRouterModule
-│   └── 依赖: ReplyModule, SceneModule, ContactModule, NotificationModule
+│   └── 依赖: ReplyModule, SceneModule, ContactModule, NotificationModule, PlatformModule
 │
 ├── AuditModule
 │   └── 依赖: (EventEmitter)

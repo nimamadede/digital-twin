@@ -19,6 +19,7 @@ import { StyleModule } from './style/style.module';
 import { ReplyModule } from './reply/reply.module';
 import { MessageModule } from './message/message.module';
 import { PlatformModule } from './platform/platform.module';
+import { NotificationModule } from './notification/notification.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -64,6 +65,7 @@ import { AppService } from './app.service';
     ReplyModule,
     MessageModule,
     PlatformModule,
+    NotificationModule,
     HealthModule,
   ],
   controllers: [AppController],

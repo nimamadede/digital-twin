@@ -20,8 +20,10 @@
 9. [messages - 消息记录表](#9-messages---消息记录表)
 10. [reply_records - 回复记录表](#10-reply_records---回复记录表)
 11. [notifications - 通知表](#11-notifications---通知表)
-12. [audit_logs - 审计日志表](#12-audit_logs---审计日志表)
-13. [file_uploads - 文件上传表](#13-file_uploads---文件上传表)
+12. [routing_logs - 消息路由日志表](#12-routing_logs---消息路由日志表)
+13. [routing_rules - 路由规则表](#13-routing_rules---路由规则表)
+14. [audit_logs - 审计日志表](#14-audit_logs---审计日志表)
+15. [file_uploads - 文件上传表](#15-file_uploads---文件上传表)
 
 ---
 
@@ -395,7 +397,129 @@
 
 ---
 
-## 12. audit_logs - 审计日志表
+## 12. routing_logs - 消息路由日志表
+
+| 字段 | 类型 | 约束 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| id | uuid | PK | `gen_random_uuid()` | 日志 ID |
+| user_id | uuid | FK → users.id, NOT NULL | - | 所属用户 |
+| message_id | uuid | FK → messages.id, NOT NULL | - | 触发消息 |
+| contact_id | uuid | FK → contacts.id, NOT NULL | - | 联系人 |
+| platform | varchar(30) | NOT NULL | - | 来源平台 |
+| incoming_content | text | NOT NULL | - | 原始消息内容 |
+| matched_rule_id | uuid | FK → routing_rules.id, NULLABLE | NULL | 命中的路由规则 |
+| scene_id | uuid | FK → scene_modes.id, NULLABLE | NULL | 匹配的场景 |
+| profile_id | uuid | FK → style_profiles.id, NULLABLE | NULL | 使用的风格画像 |
+| reply_record_id | uuid | FK → reply_records.id, NULLABLE | NULL | 关联回复记录 |
+| action | varchar(30) | NOT NULL | - | 路由结果: `auto_reply` / `pending_review` / `blocked` / `ignored` / `manual` |
+| reason | varchar(100) | NULLABLE | NULL | 路由原因说明 (如 `whitelist_auto_approve`, `blacklist_block`) |
+| reply_sent_content | text | NULLABLE | NULL | 最终发送的回复内容 |
+| steps | jsonb | NOT NULL | `'[]'` | 路由步骤详情 |
+| processing_time | integer | NOT NULL | `0` | 总处理耗时 (ms) |
+| created_at | timestamp | NOT NULL | `CURRENT_TIMESTAMP` | 创建时间 |
+
+**steps JSONB 结构:**
+
+```json
+[
+  { "step": "receive", "result": "ok", "duration": 5, "detail": null },
+  { "step": "contact_lookup", "result": "found", "duration": 12, "detail": { "level": "important", "isWhitelist": true } },
+  { "step": "blacklist_check", "result": "pass", "duration": 2, "detail": null },
+  { "step": "rule_evaluate", "result": "matched", "duration": 15, "detail": { "ruleId": "uuid", "ruleName": "白名单自动回复" } },
+  { "step": "scene_match", "result": "工作模式", "duration": 8, "detail": { "sceneId": "uuid" } },
+  { "step": "reply_generate", "result": "3 candidates", "duration": 2500, "detail": null },
+  { "step": "auto_approve", "result": "approved", "duration": 5, "detail": null },
+  { "step": "send", "result": "sent", "duration": 265, "detail": { "platformMsgId": "xxx" } }
+]
+```
+
+**索引:**
+
+| 索引名 | 字段 | 类型 | 说明 |
+|--------|------|------|------|
+| `idx_routing_logs_user_id` | user_id | B-TREE | 用户查询 |
+| `idx_routing_logs_user_created` | (user_id, created_at DESC) | B-TREE | 时间线查询 |
+| `idx_routing_logs_action` | (user_id, action) | B-TREE | 按路由结果过滤 |
+| `idx_routing_logs_contact` | (user_id, contact_id) | B-TREE | 按联系人过滤 |
+| `idx_routing_logs_scene` | (user_id, scene_id) | B-TREE | 按场景过滤 |
+| `idx_routing_logs_rule` | (user_id, matched_rule_id) | B-TREE | 按规则过滤（统计用） |
+| `idx_routing_logs_message` | message_id | UNIQUE | 一条消息一条路由日志 |
+
+**分区策略:** 同 messages 表，按月分区 `created_at`。
+
+---
+
+## 13. routing_rules - 路由规则表
+
+| 字段 | 类型 | 约束 | 默认值 | 说明 |
+|------|------|------|--------|------|
+| id | uuid | PK | `gen_random_uuid()` | 规则 ID |
+| user_id | uuid | FK → users.id, NOT NULL | - | 所属用户 |
+| name | varchar(100) | NOT NULL | - | 规则名称 |
+| priority | integer | NOT NULL | `50` | 优先级 (1-100, 数字越小优先级越高) |
+| is_enabled | boolean | NOT NULL | `true` | 是否启用 |
+| is_system | boolean | NOT NULL | `false` | 是否系统内置规则 (不可删除) |
+| type | varchar(20) | NOT NULL | `'route'` | 规则类型: `block` / `route` / `transform` |
+| conditions | jsonb | NOT NULL | `'{}'` | 匹配条件 (见下方结构) |
+| action | varchar(30) | NOT NULL | - | 路由动作: `auto_reply` / `pending_review` / `blocked` / `ignored` / `manual` |
+| action_config | jsonb | NOT NULL | `'{}'` | 动作配置 |
+| trigger_count | integer | NOT NULL | `0` | 累计触发次数 |
+| last_triggered_at | timestamp | NULLABLE | NULL | 最后触发时间 |
+| created_at | timestamp | NOT NULL | `CURRENT_TIMESTAMP` | 创建时间 |
+| updated_at | timestamp | NOT NULL | `CURRENT_TIMESTAMP` | 更新时间 |
+
+**conditions JSONB 结构:**
+
+```json
+{
+  "contact": {
+    "level": "important",
+    "isWhitelist": true,
+    "isBlacklist": false,
+    "tags": ["客户"]
+  },
+  "message": {
+    "containsKeywords": ["转账", "红包"],
+    "msgType": "text",
+    "isGroup": false,
+    "lengthMin": 0,
+    "lengthMax": 500
+  },
+  "platform": {
+    "in": ["wechat"]
+  },
+  "time": {
+    "startTime": "09:00",
+    "endTime": "18:00",
+    "weekdays": [1, 2, 3, 4, 5]
+  }
+}
+```
+
+**action_config JSONB 结构:**
+
+```json
+{
+  "notifyUser": true,
+  "autoApprove": true,
+  "timeout": 300,
+  "timeoutAction": "auto_approve",
+  "maxDelay": 5,
+  "customPrompt": "简短回复"
+}
+```
+
+**索引:**
+
+| 索引名 | 字段 | 类型 | 说明 |
+|--------|------|------|------|
+| `idx_routing_rules_user_id` | user_id | B-TREE | 用户查询 |
+| `idx_routing_rules_user_priority` | (user_id, priority) | B-TREE | 按优先级排序 |
+| `idx_routing_rules_user_enabled` | (user_id, is_enabled) | B-TREE | 启用规则过滤 |
+
+---
+
+## 14. audit_logs - 审计日志表
 
 | 字段 | 类型 | 约束 | 默认值 | 说明 |
 |------|------|------|--------|------|
@@ -429,7 +553,7 @@
 
 ---
 
-## 13. file_uploads - 文件上传表
+## 15. file_uploads - 文件上传表
 
 | 字段 | 类型 | 约束 | 默认值 | 说明 |
 |------|------|------|--------|------|
@@ -467,9 +591,19 @@ users
   ├── 1:N ── scene_modes
   ├── 1:N ── messages
   ├── 1:N ── reply_records
+  ├── 1:N ── routing_logs
+  ├── 1:N ── routing_rules
   ├── 1:N ── notifications
   ├── 1:N ── audit_logs
   └── 1:N ── file_uploads
+
+routing_logs
+  ├── N:1 ── messages
+  ├── N:1 ── contacts
+  ├── N:1 ── routing_rules (matched_rule_id)
+  ├── N:1 ── scene_modes
+  ├── N:1 ── style_profiles
+  └── N:1 ── reply_records
 
 reply_records
   ├── N:1 ── contacts
@@ -506,5 +640,9 @@ CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 | messages → users | CASCADE | CASCADE | 删除用户时级联 |
 | messages → contacts | SET NULL | CASCADE | 删除联系人时保留消息 |
 | reply_records → users | CASCADE | CASCADE | 删除用户时级联 |
+| routing_logs → users | CASCADE | CASCADE | 删除用户时级联 |
+| routing_logs → messages | CASCADE | CASCADE | 删除消息时级联 |
+| routing_logs → routing_rules | SET NULL | CASCADE | 删除规则时保留日志 |
+| routing_rules → users | CASCADE | CASCADE | 删除用户时级联 |
 | notifications → users | CASCADE | CASCADE | 删除用户时级联 |
 | audit_logs → users | SET NULL | CASCADE | 删除用户时保留日志 |

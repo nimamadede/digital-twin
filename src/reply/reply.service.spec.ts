@@ -28,7 +28,7 @@ const mockCandidates = [
   { index: 1, content: '可以呀，几点呢？', confidence: 0.85 },
 ];
 
-const mockReplyRecord: ReplyRecord = {
+const mockReplyRecord = {
   id: replyId,
   userId,
   contactId,
@@ -48,7 +48,7 @@ const mockReplyRecord: ReplyRecord = {
   expiresAt: new Date(),
   createdAt: new Date(),
   contact: { id: contactId, nickname: '张三', platform: 'wechat' } as never,
-} as ReplyRecord;
+} as unknown as ReplyRecord;
 
 describe('ReplyService', () => {
   let service: ReplyService;

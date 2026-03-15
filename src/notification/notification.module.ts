@@ -6,6 +6,8 @@ import { Notification } from './entities/notification.entity';
 import { NotificationController } from './notification.controller';
 import { NotificationService } from './notification.service';
 import { NotificationGateway } from './gateways/notification.gateway';
+import { ReplyModule } from '../reply/reply.module';
+import { SceneModule } from '../scene/scene.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { NotificationGateway } from './gateways/notification.gateway';
       }),
       inject: [ConfigService],
     }),
+    ReplyModule,
+    SceneModule,
   ],
   controllers: [NotificationController],
   providers: [NotificationService, NotificationGateway],

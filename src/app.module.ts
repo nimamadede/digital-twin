@@ -8,8 +8,10 @@ import { validationSchema } from './config/validation-schema';
 import configuration from './config/configuration';
 import { DatabaseConfigService } from './config/database.config';
 import { RedisConfigService } from './config/redis.config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { CommonModule } from './common/common.module';
+import { AuditModule } from './audit/audit.module';
+import { AuditInterceptor } from './audit/audit.interceptor';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { ContactModule } from './contact/contact.module';
@@ -20,6 +22,7 @@ import { ReplyModule } from './reply/reply.module';
 import { MessageModule } from './message/message.module';
 import { PlatformModule } from './platform/platform.module';
 import { NotificationModule } from './notification/notification.module';
+import { MessageRouterModule } from './message-router/message-router.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -65,13 +68,16 @@ import { AppService } from './app.service';
     ReplyModule,
     MessageModule,
     PlatformModule,
+    MessageRouterModule,
     NotificationModule,
+    AuditModule,
     HealthModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
   ],
 })
 export class AppModule {}

@@ -126,7 +126,7 @@ describe('StorageService', () => {
 
     it('should reject when file has no content', async () => {
       const file = createMockFile({ buffer: undefined as unknown as Buffer, size: 0 });
-      (file as Express.Multer.File & { path?: string }).path = undefined;
+      delete (file as Partial<Express.Multer.File>).path;
 
       await expect(service.upload(userId, file, 'style_analysis')).rejects.toThrow(
         BadRequestException,

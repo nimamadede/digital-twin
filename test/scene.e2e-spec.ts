@@ -96,7 +96,7 @@ describe('Scene (e2e) - create scene and activate/switch', () => {
       .expect(200);
 
     const wrap = activateRes.body as { data?: { data?: { activatedScene: string; deactivatedScene: string | null } } };
-    const activateData = wrap.data?.data ?? wrap.data;
+    const activateData = (wrap.data?.data ?? wrap.data) as { activatedScene: string; deactivatedScene: string | null } | undefined;
     expect(activateData?.activatedScene).toBe(sceneA!.id);
     expect(activateData?.deactivatedScene).toBeNull();
 
@@ -135,7 +135,7 @@ describe('Scene (e2e) - create scene and activate/switch', () => {
       .expect(200);
 
     const wrap2 = activateRes.body as { data?: { data?: { activatedScene: string; deactivatedScene: string | null } } };
-    const activateData2 = wrap2.data?.data ?? wrap2.data;
+    const activateData2 = (wrap2.data?.data ?? wrap2.data) as { activatedScene: string; deactivatedScene: string | null } | undefined;
     expect(activateData2?.activatedScene).toBe(sceneB!.id);
     expect(activateData2?.deactivatedScene).toBe(sceneA!.id);
 

@@ -13,7 +13,7 @@ describe('SceneService', () => {
   const sceneId = 'scene-uuid-1';
   const otherSceneId = 'scene-uuid-2';
 
-  const mockScene: SceneMode = {
+  const mockScene = {
     id: sceneId,
     userId,
     name: '工作模式',
@@ -26,7 +26,7 @@ describe('SceneService', () => {
     sortOrder: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
-  } as SceneMode;
+  } as unknown as SceneMode;
 
   const mockActiveScene: SceneMode = {
     ...mockScene,

@@ -14,7 +14,7 @@ const userId = 'user-uuid-1';
 const profileId = 'profile-uuid-1';
 const taskId = 'task-uuid-1';
 
-const mockProfile: StyleProfile = {
+const mockProfile = {
   id: profileId,
   userId,
   name: '日常聊天风格',
@@ -25,7 +25,7 @@ const mockProfile: StyleProfile = {
   status: 'active',
   createdAt: new Date(),
   updatedAt: new Date(),
-} as StyleProfile;
+} as unknown as StyleProfile;
 
 const mockTask: StyleTask = {
   id: taskId,

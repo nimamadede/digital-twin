@@ -87,6 +87,29 @@ export class ContactService {
   }
 
   /**
+   * Find contact by platform + platformId, or create with nickname. User_id isolated.
+   * Used when an inbound message arrives from a platform (e.g. WeChat openId).
+   */
+  async findOrCreateByPlatform(
+    userId: string,
+    platform: string,
+    platformId: string,
+    nickname?: string,
+  ): Promise<Contact> {
+    const existing = await this.contactRepo.findOne({
+      where: { userId, platform, platformId },
+    });
+    if (existing) return existing;
+    const contact = this.contactRepo.create({
+      userId,
+      platformId,
+      platform,
+      nickname: nickname ?? `Contact ${platformId.slice(0, 8)}`,
+    });
+    return this.contactRepo.save(contact);
+  }
+
+  /**
    * Get one contact by id with user_id isolation.
    */
   async findOne(userId: string, contactId: string): Promise<Contact | null> {

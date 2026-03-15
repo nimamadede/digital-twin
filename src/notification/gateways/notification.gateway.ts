@@ -4,12 +4,16 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
   SubscribeMessage,
+  ConnectedSocket,
+  MessageBody,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Server } from 'socket.io';
 import type { Socket } from 'socket.io';
+import { ReplyService } from '../../reply/reply.service';
+import { SceneService } from '../../scene/scene.service';
 
 const WS_NAMESPACE = '/ws';
 const USER_ROOM_PREFIX = 'user:';
@@ -42,6 +46,8 @@ export class NotificationGateway
   constructor(
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
+    private readonly replyService: ReplyService,
+    private readonly sceneService: SceneService,
   ) {}
 
   async handleConnection(client: Socket): Promise<void> {
@@ -107,35 +113,84 @@ export class NotificationGateway
     return trimmed;
   }
 
-  // --- Client -> Server event handlers (delegate to services via injection in future) ---
+  // --- Client -> Server event handlers ---
 
   @SubscribeMessage('reply:approve')
-  handleReplyApprove(
-    _client: Socket,
-    payload: { replyId: string; selectedIndex: number },
-  ): void {
-    this.logger.debug('reply:approve', payload);
-    // TODO: inject ReplyService and call approve
+  async handleReplyApprove(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { replyId: string; selectedIndex: number },
+  ): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+    const userId = this.getUserId(client);
+    if (!userId) return { ok: false, error: 'Unauthorized' };
+    try {
+      const result = await this.replyService.review(userId, payload.replyId, {
+        action: 'approve',
+        selectedIndex: payload.selectedIndex,
+      });
+      this.emitToUser(userId, 'reply:sent', result);
+      return { ok: true, data: result };
+    } catch (err) {
+      this.logger.warn(`reply:approve failed: ${(err as Error).message}`);
+      return { ok: false, error: (err as Error).message };
+    }
   }
 
   @SubscribeMessage('reply:reject')
-  handleReplyReject(_client: Socket, payload: { replyId: string }): void {
-    this.logger.debug('reply:reject', payload);
-    // TODO: inject ReplyService and call reject
+  async handleReplyReject(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { replyId: string },
+  ): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+    const userId = this.getUserId(client);
+    if (!userId) return { ok: false, error: 'Unauthorized' };
+    try {
+      const result = await this.replyService.review(userId, payload.replyId, {
+        action: 'reject',
+      });
+      return { ok: true, data: result };
+    } catch (err) {
+      this.logger.warn(`reply:reject failed: ${(err as Error).message}`);
+      return { ok: false, error: (err as Error).message };
+    }
   }
 
   @SubscribeMessage('reply:edit')
-  handleReplyEdit(
-    _client: Socket,
-    payload: { replyId: string; content: string },
-  ): void {
-    this.logger.debug('reply:edit', payload);
-    // TODO: inject ReplyService and call edit+send
+  async handleReplyEdit(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { replyId: string; content: string },
+  ): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+    const userId = this.getUserId(client);
+    if (!userId) return { ok: false, error: 'Unauthorized' };
+    try {
+      const result = await this.replyService.review(userId, payload.replyId, {
+        action: 'edit',
+        editedContent: payload.content,
+      });
+      this.emitToUser(userId, 'reply:sent', result);
+      return { ok: true, data: result };
+    } catch (err) {
+      this.logger.warn(`reply:edit failed: ${(err as Error).message}`);
+      return { ok: false, error: (err as Error).message };
+    }
   }
 
   @SubscribeMessage('scene:switch')
-  handleSceneSwitch(_client: Socket, payload: { sceneId: string }): void {
-    this.logger.debug('scene:switch', payload);
-    // TODO: inject SceneService and switch active scene
+  async handleSceneSwitch(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { sceneId: string },
+  ): Promise<{ ok: boolean; data?: unknown; error?: string }> {
+    const userId = this.getUserId(client);
+    if (!userId) return { ok: false, error: 'Unauthorized' };
+    try {
+      const result = await this.sceneService.activate(userId, payload.sceneId);
+      this.emitToUser(userId, 'scene:switched', result);
+      return { ok: true, data: result };
+    } catch (err) {
+      this.logger.warn(`scene:switch failed: ${(err as Error).message}`);
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
+  private getUserId(client: Socket): string | null {
+    return (client.data as { userId?: string }).userId ?? null;
   }
 }

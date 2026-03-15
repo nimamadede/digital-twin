@@ -22,6 +22,7 @@
     "test:e2e:style": "NODE_ENV=development jest --config ./test/jest-e2e.json test/style.e2e-spec.ts --forceExit",
     "test:e2e:message": "NODE_ENV=development jest --config ./test/jest-e2e.json test/message.e2e-spec.ts --forceExit",
     "self-test:messages": "bash scripts/message-self-test.sh http://localhost:3000/api/v1",
+    "self-test:router": "bash scripts/router-inbound-self-test.sh http://localhost:3000/api/v1",
     "self-test:websocket": "node scripts/websocket-self-test.mjs",
     "typeorm": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js",
     "migration:generate": "npm run typeorm -- migration:generate -d src/config/data-source.ts",

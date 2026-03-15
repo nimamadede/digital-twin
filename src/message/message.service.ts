@@ -74,6 +74,56 @@ export class MessageService {
   ) {}
 
   /**
+   * Create incoming message (from platform). Used by inbound pipeline. User_id isolated.
+   */
+  async createIncoming(
+    userId: string,
+    contactId: string,
+    platform: string,
+    content: string,
+    msgType: string = 'text',
+    platformMsgId?: string | null,
+  ): Promise<Message> {
+    const msg = this.messageRepo.create({
+      userId,
+      contactId,
+      direction: 'incoming',
+      content,
+      msgType,
+      platform,
+      platformMsgId: platformMsgId ?? null,
+      isAiGenerated: false,
+      replyRecordId: null,
+    });
+    return this.messageRepo.save(msg);
+  }
+
+  /**
+   * Create outgoing message (sent reply). Links to replyRecordId. User_id isolated.
+   */
+  async createOutgoing(
+    userId: string,
+    contactId: string,
+    platform: string,
+    content: string,
+    replyRecordId: string,
+    isAiGenerated: boolean = true,
+  ): Promise<Message> {
+    const msg = this.messageRepo.create({
+      userId,
+      contactId,
+      direction: 'outgoing',
+      content,
+      msgType: 'text',
+      platform,
+      platformMsgId: null,
+      isAiGenerated,
+      replyRecordId,
+    });
+    return this.messageRepo.save(msg);
+  }
+
+  /**
    * Get message list with filters. All queries scoped by userId (data isolation).
    */
   async getList(

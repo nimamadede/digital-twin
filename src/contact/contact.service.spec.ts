@@ -33,15 +33,6 @@ describe('ContactService', () => {
   } as Contact;
 
   const mockRepo = {
-    createQueryBuilder: jest.fn(() => ({
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      addOrderBy: jest.fn().mockReturnThis(),
-      skip: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      getManyAndCount: jest.fn().mockResolvedValue([[mockContact], 1]),
-    })),
     findOne: jest.fn(),
     save: jest.fn(),
     createQueryBuilder: jest.fn(function (this: unknown) {

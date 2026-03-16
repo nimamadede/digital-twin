@@ -1,0 +1,75 @@
+---
+description: 
+alwaysApply: true
+---
+
+# Digital Twin Backend - Cursor Rules
+
+## 项目概述
+这是一个"数字分身"后端系统，基于 NestJS + TypeScript，用于自动化社交平台消息回复。
+
+## 技术栈（严格遵守，不得擅自引入新依赖）
+- Runtime: Node.js 18+, NestJS 10
+- Language: TypeScript (strict mode)
+- ORM: TypeORM (已配置, 使用 Repository 模式)
+- Auth: JWT (@nestjs/jwt + @nestjs/passport)
+- Queue: Bull (Redis-backed)
+- Storage: MinIO (S3-compatible)
+- WebSocket: @nestjs/websockets + socket.io
+- Validation: class-validator + class-transformer
+- Docs: @nestjs/swagger (OpenAPI 3.0)
+- Test: Jest + supertest
+- Logger: Winston (已配置)
+
+## 代码规范（每次生成代码必须遵守）
+
+### 文件结构
+- 每个模块遵循 NestJS 标准: module / controller / service / dto / entity
+- Entity 文件放在模块目录下, 命名: xxx.entity.ts
+- DTO 放在模块 dto/ 子目录, 命名: xxx.dto.ts
+- 测试文件与源码同目录, 命名: xxx.spec.ts (单元) / xxx.e2e-spec.ts (e2e放test/)
+
+### Controller 规范
+- 所有 Controller 必须使用 @ApiTags 装饰器
+- 所有端点必须使用 @ApiOperation({ summary: '...' })
+- 需要认证的接口必须使用 @UseGuards(JwtAuthGuard) + @ApiBearerAuth()
+- 使用 @User() 装饰器获取当前用户, 所有查询必须带 userId 做租户隔离
+- 统一前缀: api/v1 (已在 main.ts 设置 globalPrefix)
+
+### Service 规范
+- 注入 Repository 使用 @InjectRepository(XxxEntity)
+- 业务错误使用 NestJS 内置异常: NotFoundException, BadRequestException, ForbiddenException
+- 不要在 Service 中直接 console.log, 使用注入的 Logger
+
+### DTO 规范
+- 使用 class-validator 装饰器做入参校验
+- 使用 @ApiProperty() 为 Swagger 提供字段说明
+- 分页请求继承或包含 page/limit 参数, 返回 { items, total, page, limit }
+
+### Entity 规范
+- 主键使用 UUID: @PrimaryGeneratedColumn('uuid')
+- 必须有 createdAt / updatedAt 字段
+- 关联字段命名: xxxId (如 userId, sceneId)
+- 敏感字段标注 @Exclude() 防止序列化泄露
+
+### 安全规范
+- 所有业务查询必须过滤 userId，绝不能跨租户访问
+- 密码使用 bcrypt 哈希, 不得明文存储
+- JWT secret 从环境变量读取, 不得硬编码
+- 不得在代码中硬编码 API Key、Token、密码等
+
+## 现有模块清单（不要重复创建）
+已存在: auth, user, style, reply, platform, contact, scene, message,
+         message-router, notification, audit, storage, health, common, config
+
+## 数据库迁移
+- 使用 TypeORM migration, 放在 src/config/migrations/
+- 命名: {timestamp}-{Description}.ts
+- 不要使用 synchronize:true 替代 migration
+
+## 参考文档位置
+- 架构设计: docs/architecture.md
+- API 规范: docs/api-spec.md
+- 数据库: docs/database-schema.md
+- 项目结构: docs/project-structure.md
+- 进度: docs/PROJECT_PROGRESS_AND_BACKLOG.md

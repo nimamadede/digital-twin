@@ -1,6 +1,9 @@
 import { DataSource } from 'typeorm';
 
 // Used by TypeORM CLI (migration:generate, migration:run). Loads from process.env.
+const isProduction = process.env.NODE_ENV === 'production';
+const useSSL = process.env.DB_SSL === 'true' || (process.env.DB_SSL === undefined && isProduction);
+
 const dataSource = new DataSource({
   type: 'postgres',
   host: process.env.DB_HOST ?? 'localhost',
@@ -11,6 +14,7 @@ const dataSource = new DataSource({
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
   migrations: [__dirname + '/../../migrations/*{.ts,.js}'],
   synchronize: false,
+  ssl: useSSL ? { rejectUnauthorized: false } : false,
 });
 
 export default dataSource;

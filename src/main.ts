@@ -21,7 +21,7 @@ async function bootstrap() {
 
   // CORS
   app.enableCors({
-    origin: process.env.CORS_ORIGIN?.split(',') ?? '*',
+    origin: process.env.CORS_ORIGIN?.split(',') ?? 'http://localhost:3000',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
     maxAge: 86400,
@@ -55,15 +55,17 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
-  // Swagger / OpenAPI
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Digital Twin API')
-    .setDescription('数字分身后端 API 文档')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api-docs', app, document);
+  // Swagger / OpenAPI — disabled in production
+  if (process.env.NODE_ENV !== 'production') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Digital Twin API')
+      .setDescription('数字分身后端 API 文档')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api-docs', app, document);
+  }
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);

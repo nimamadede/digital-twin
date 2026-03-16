@@ -54,7 +54,10 @@ export class AuthService {
   }
 
   async sendSms(phone: string, purpose: string): Promise<{ expireIn: number }> {
-    const code = this.isDev ? MOCK_SMS_CODE_DEV : String(Math.floor(100000 + Math.random() * 900000));
+    if (!this.isDev) {
+      throw new Error('SMS provider not configured for production');
+    }
+    const code = MOCK_SMS_CODE_DEV;
     const key = `sms:${purpose}:${phone}`;
     await this.redis.setex(key, SMS_TTL, code);
     return { expireIn: SMS_TTL };

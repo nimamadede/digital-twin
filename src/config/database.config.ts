@@ -8,6 +8,9 @@ export class DatabaseConfigService implements TypeOrmOptionsFactory {
 
   createTypeOrmOptions(): TypeOrmModuleOptions {
     const db = this.config.get('database');
+    const isProduction = this.config.get('nodeEnv') === 'production';
+    const sslExplicit = this.config.get<boolean>('dbSsl');
+    const useSSL = sslExplicit ?? isProduction;
     return {
       type: 'postgres',
       host: db?.host ?? 'localhost',
@@ -16,8 +19,9 @@ export class DatabaseConfigService implements TypeOrmOptionsFactory {
       password: db?.password ?? 'dev_password',
       database: db?.database ?? 'digital_twin',
       autoLoadEntities: true,
-      synchronize: this.config.get('nodeEnv') === 'development',
-      logging: this.config.get('nodeEnv') === 'development',
+      synchronize: !isProduction && this.config.get('nodeEnv') === 'development',
+      logging: !isProduction && this.config.get('nodeEnv') === 'development',
+      ssl: useSSL ? { rejectUnauthorized: false } : false,
     };
   }
 }

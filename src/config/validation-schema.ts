@@ -19,11 +19,29 @@ export const validationSchema = Joi.object({
   REDIS_PASSWORD: Joi.string().allow('').optional(),
   REDIS_DB: Joi.string().default('0'),
 
-  // JWT (optional for dev)
-  JWT_SECRET: Joi.string().min(16).optional(),
+  // JWT — required with min 32 chars in production
+  JWT_SECRET: Joi.string().when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().min(32).required(),
+    otherwise: Joi.string().min(16).optional(),
+  }),
   JWT_EXPIRES_IN: Joi.string().default('7d'),
-  JWT_REFRESH_SECRET: Joi.string().min(16).optional(),
+  JWT_REFRESH_SECRET: Joi.string().when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().min(32).required(),
+    otherwise: Joi.string().min(16).optional(),
+  }),
   JWT_REFRESH_EXPIRES_IN: Joi.string().default('30d'),
+
+  // CORS — required in production
+  CORS_ORIGIN: Joi.string().when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().required(),
+    otherwise: Joi.string().optional(),
+  }),
+
+  // Database SSL
+  DB_SSL: Joi.string().valid('true', 'false').optional(),
 
   // MinIO
   MINIO_ENDPOINT: Joi.string().default('localhost'),

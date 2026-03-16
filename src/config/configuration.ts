@@ -18,12 +18,13 @@ export default () => ({
   },
 
   jwt: {
-    secret: process.env.JWT_SECRET ?? 'dev-jwt-secret-change-in-production',
+    secret: process.env.JWT_SECRET ?? undefined,
     expiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
-    refreshSecret:
-      process.env.JWT_REFRESH_SECRET ?? 'dev-refresh-secret-change-in-production',
+    refreshSecret: process.env.JWT_REFRESH_SECRET ?? undefined,
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN ?? '30d',
   },
+
+  dbSsl: process.env.DB_SSL === 'true',
 
   minio: {
     endPoint: process.env.MINIO_ENDPOINT ?? 'localhost',

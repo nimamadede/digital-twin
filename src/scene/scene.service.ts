@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { SceneMode } from './entities/scene-mode.entity';
 import type { CreateSceneDto } from './dto/create-scene.dto';
 import type { UpdateSceneDto } from './dto/update-scene.dto';
@@ -22,6 +22,7 @@ export class SceneService {
   constructor(
     @InjectRepository(SceneMode)
     private readonly sceneRepo: Repository<SceneMode>,
+    private readonly dataSource: DataSource,
   ) {}
 
   /** List all scenes for user. User_id isolated. */
@@ -101,20 +102,27 @@ export class SceneService {
     userId: string,
     sceneId: string,
   ): Promise<{ activatedScene: string; deactivatedScene: string | null }> {
-    const scene = await this.findOneOrFail(userId, sceneId);
-    const previouslyActive = await this.sceneRepo.findOne({
-      where: { userId, isActive: true },
+    return this.dataSource.transaction(async (manager) => {
+      const sceneRepo = manager.getRepository(SceneMode);
+      const scene = await sceneRepo.findOne({ where: { id: sceneId, userId } });
+      if (!scene) throw new NotFoundException('NOT_FOUND');
+      const previouslyActive = await sceneRepo.findOne({
+        where: { userId, isActive: true },
+      });
+      if (previouslyActive && previouslyActive.id !== sceneId) {
+        previouslyActive.isActive = false;
+        await sceneRepo.save(previouslyActive);
+      }
+      scene.isActive = true;
+      await sceneRepo.save(scene);
+      return {
+        activatedScene: sceneId,
+        deactivatedScene:
+          previouslyActive && previouslyActive.id !== sceneId
+            ? previouslyActive.id
+            : null,
+      };
     });
-    if (previouslyActive && previouslyActive.id !== sceneId) {
-      previouslyActive.isActive = false;
-      await this.sceneRepo.save(previouslyActive);
-    }
-    scene.isActive = true;
-    await this.sceneRepo.save(scene);
-    return {
-      activatedScene: sceneId,
-      deactivatedScene: previouslyActive?.id ?? null,
-    };
   }
 
   /** Deactivate a scene. User_id isolated. */

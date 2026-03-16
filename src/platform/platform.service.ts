@@ -32,8 +32,8 @@ const PLATFORM_DISPLAY_NAMES: Record<string, string> = {
   douyin: '抖音',
 };
 
-/** In-memory: authId -> platform for polling auth status (dev mock). */
-const pendingAuthPlatform = new Map<string, string>();
+/** In-memory: authId -> { userId, platform } for polling auth status (dev mock). */
+const pendingAuth = new Map<string, { userId: string; platform: string }>();
 
 @Injectable()
 export class PlatformService {
@@ -84,7 +84,7 @@ export class PlatformService {
     }
     const result = await connector.authorize(userId, authType);
     if (result.authId) {
-      pendingAuthPlatform.set(result.authId, platform);
+      pendingAuth.set(result.authId, { userId, platform });
     }
     return result;
   }
@@ -96,13 +96,19 @@ export class PlatformService {
     userId: string,
     authId: string,
   ): Promise<AuthStatusResult> {
-    const platform = pendingAuthPlatform.get(authId);
-    const connector = platform ? this.connectors.get(platform) : undefined;
+    const pending = pendingAuth.get(authId);
+    if (!pending) {
+      return { authId, status: 'expired' };
+    }
+    if (pending.userId !== userId) {
+      return { authId, status: 'expired' };
+    }
+    const connector = this.connectors.get(pending.platform);
     if (!connector) {
       return { authId, status: 'expired' };
     }
     const result = await connector.getAuthStatus(userId, authId);
-    if (result.status === 'confirmed' && platform === 'wechat') {
+    if (result.status === 'confirmed' && pending.platform === 'wechat') {
       const auth = this.platformAuthRepo.create({
         userId,
         platform: 'wechat',
@@ -117,7 +123,7 @@ export class PlatformService {
       });
       const saved = await this.platformAuthRepo.save(auth);
       (connector as WechatConnector).consumePendingAuth(authId);
-      pendingAuthPlatform.delete(authId);
+      pendingAuth.delete(authId);
       return {
         authId,
         status: 'confirmed',
@@ -125,7 +131,7 @@ export class PlatformService {
       };
     }
     if (result.status === 'expired' || result.status === 'failed') {
-      pendingAuthPlatform.delete(authId);
+      pendingAuth.delete(authId);
     }
     return result;
   }

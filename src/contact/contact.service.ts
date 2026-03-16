@@ -253,7 +253,12 @@ export class ContactService {
     userId: string,
     platformAuthId: string,
   ): Promise<{ taskId: string; estimatedCount: number }> {
-    // Stub: real implementation would enqueue a job and query platform for count
+    if (!platformAuthId) {
+      throw new BadRequestException('platformAuthId is required');
+    }
+    // TODO: When implementing real sync logic, validate that platformAuthId
+    // belongs to the given userId via PlatformService/PlatformAuth repository,
+    // and enforce user-level isolation for any outbound platform calls.
     return {
       taskId: randomUUID(),
       estimatedCount: 200,

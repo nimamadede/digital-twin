@@ -121,6 +121,7 @@
 | 字段 | 类型 | 约束 | 默认值 | 说明 |
 |------|------|------|--------|------|
 | id | uuid | PK | `gen_random_uuid()` | 样本 ID |
+| user_id | uuid | FK → users.id, NOT NULL | - | 所属用户 (纵深防御，配合 profile_id 做多租户隔离) |
 | profile_id | uuid | FK → style_profiles.id, NOT NULL | - | 所属画像 |
 | content | text | NOT NULL | - | 样本内容 |
 | platform | varchar(30) | NOT NULL | - | 来源平台 |
@@ -134,6 +135,7 @@
 |--------|------|------|------|
 | `idx_style_samples_profile_id` | profile_id | B-TREE | 画像关联查询 |
 | `idx_style_samples_platform` | platform | B-TREE | 平台过滤 |
+| `idx_style_samples_user_profile` | (user_id, profile_id) | B-TREE | 多租户隔离 + 用户画像下样本查询 |
 
 ---
 

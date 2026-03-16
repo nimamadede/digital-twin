@@ -200,7 +200,7 @@ export class StyleService {
     if (!profile) throw new NotFoundException('Profile not found');
 
     const samples = await this.sampleRepo.find({
-      where: { profileId },
+      where: { profileId, userId },
       order: { createdAt: 'DESC' },
       take: 50,
     });

@@ -285,7 +285,7 @@
 |------|------|
 | 传输加密 | 全站 HTTPS (TLS 1.3) |
 | 敏感数据加密 | AES-256-GCM 加密存储 (access_token, 聊天内容) |
-| 数据隔离 | 所有查询强制 user_id 过滤 (Row-Level Security) |
+| 数据隔离 | 所有查询强制 user_id 过滤 (Row-Level Security)，后台任务和样本表等内部实体使用 user_id + 业务主键做纵深防御 |
 | 日志脱敏 | 日志中自动掩码手机号、token 等敏感信息 |
 | SQL 注入防护 | TypeORM 参数化查询，禁止原始 SQL 拼接 |
 

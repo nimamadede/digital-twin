@@ -67,7 +67,7 @@ export class StyleAnalysisProcessor extends WorkerHost {
 
       if (reanalyze) {
         const existing = await this.sampleRepo.find({
-          where: { profileId },
+          where: { profileId, userId },
           order: { createdAt: 'ASC' },
         });
         samples = existing.map((s) => ({
@@ -92,6 +92,7 @@ export class StyleAnalysisProcessor extends WorkerHost {
 
         const toInsert = samples.map((s) =>
           this.sampleRepo.create({
+            userId,
             profileId,
             content: s.content,
             platform: s.platform,
@@ -114,12 +115,14 @@ export class StyleAnalysisProcessor extends WorkerHost {
       });
       if (!profile) throw new Error('Profile not found');
 
-      const sampleCount = await this.sampleRepo.count({ where: { profileId } });
+      const sampleCount = await this.sampleRepo.count({
+        where: { profileId, userId },
+      });
       let collectionName: string | null = null;
       try {
         collectionName = await this.vectorStore.ensureCollection(profileId);
         const samplesForVector = await this.sampleRepo.find({
-          where: { profileId },
+          where: { profileId, userId },
           take: 500,
         });
         const points = samplesForVector.map((s) => ({

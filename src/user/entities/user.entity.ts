@@ -21,6 +21,9 @@ export class User extends BaseEntity {
   @Column({ type: 'varchar', length: 500, nullable: true })
   avatarUrl!: string | null;
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  bio!: string | null;
+
   @Column({ type: 'varchar', length: 20, default: 'active' })
   status!: string;
 

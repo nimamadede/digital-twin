@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import type { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import { WinstonModule } from 'nest-winston';
@@ -54,10 +55,20 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   );
+  // Swagger / OpenAPI
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Digital Twin API')
+    .setDescription('数字分身后端 API 文档')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api-docs', app, document);
+
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
-  new Logger('Bootstrap').log(
-    `Application is running on: http://localhost:${port}`,
-  );
+  const logger = new Logger('Bootstrap');
+  logger.log(`Application is running on: http://localhost:${port}`);
+  logger.log(`Swagger UI available at: http://localhost:${port}/api-docs`);
 }
 bootstrap();

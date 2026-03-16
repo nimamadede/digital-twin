@@ -20,6 +20,7 @@ const mockUser = {
   nickname: 'TestUser',
   passwordHash: '$2b$10$existing_hash',
   avatarUrl: null,
+  bio: null,
   status: 'active',
   createdAt: new Date(),
   lastLoginAt: null,

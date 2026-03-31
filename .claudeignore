@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# build
+dist/
+build/
+
+# logs
+*.log
+
+# test output
+coverage/
+
+# editor
+.vscode/
+.idea/
+
+# system
+.DS_Store
+
+# git
+.git/
+
+# data
+datasets/
+vector_store/
+models/

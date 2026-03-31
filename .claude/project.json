@@ -1,0 +1,61 @@
+{
+  "项目定位": [
+    "本仓库：数字分身 NestJS 后端（api/v1），没有独立前端（Web/小程序/管理台需另项目联调）。",
+    "整体：后端能力已较完整，未到「产品可上线」——平台真实对接、流水线闭环、观测与测试仍要补。"
+  ],
+  "已具备（可继续开发的基础）": {
+    "业务模块": "Auth、User、Style、Reply、Platform、Contact、Scene、Message、MessageRouter、Notification、Storage、Audit、Health 等已落地。",
+    "数据层": "实体与迁移在演进中；当前 migrations/ 下 5 个迁移（文档里写的「3 个」已过时）。",
+    "文档与调试": "Swagger UI：非生产环境 http://localhost:<PORT>/api-docs（main.ts 已挂载）。",
+    "用户侧 API": "已有 UserController：GET/PUT users/me、PUT users/settings（文档里「无 UserController」已过时）。"
+  },
+  "仍偏「未完成 / 待验证」的块": [
+    "平台：企微已有回调/Connector；抖音等仍为 mock，真实授权与消息链路需对接与联调。",
+    "闭环：风格分析（Bull → MinIO → Qdrant → AI）、入站 → 路由 → 生成回复 → 审核 → 回发平台需按环境逐项跑通并加固异常/重试。",
+    "短信：接口在，真实短信与防刷多半仍待落地。",
+    "工程化：Prometheus/链路追踪/Sentry、E2E 关键路径与单测覆盖率——文档仍列为缺口。",
+    "前端：不在本仓库，排期上属于后续对接。"
+  ],
+  "projectOverview": "# Project Overview\n\nProject: Digital Twin Backend (数字分身后端)\n\nPurpose:\n- Backend for automating social-platform message handling: learn user chat style, route inbound messages, generate AI replies (with optional human review), send via platform connectors.\n- This repo is API-only (NestJS modular monolith). No Next.js / no frontend; clients (mini-program, Web, admin) are separate repos.\n\nTech Stack:\n- NestJS 11 + TypeScript (strict)\n- TypeORM + PostgreSQL\n- Redis + BullMQ (async jobs: style analysis, reply generation, exports)\n- MinIO (S3-compatible object storage)\n- Qdrant (vector store for style retrieval)\n- Anthropic Claude SDK (reply / style pipeline)\n- JWT (Passport) + class-validator + Swagger (OpenAPI)\n- Socket.io (WebSocket gateway for notifications)\n- Winston logging, Jest + supertest\n\nMain Modules (NestJS feature modules under src/):\n- auth — register/login/refresh, JWT\n- user — profile & settings (users/me, users/settings)\n- style — chat upload, style tasks, profiles, vector store\n- reply — generate, pending review, approve/reject/edit, feedback\n- platform — OAuth/connectors (WeCom callback + connector; others may be mock), message listener\n- contact — contacts, import, sync, lists\n- scene — scene modes, activation\n- message — conversations, history, stats, export jobs\n- message-router — rules engine, inbound routing, logs, stats, simulate\n- notification — REST + WebSocket gateway\n- storage — MinIO upload/list/download\n- audit — audit log query\n- health — Terminus health checks\n- common — guards, decorators, interceptors, pipes, shared DTOs\n- config — env, data-source, redis, socket adapter, winston\n\nDirectory Structure:\nsrc/\n  main.ts, app.module.ts\n  auth/\n  user/\n  style/          (+ processors/, services/, entities/, dto/)\n  reply/\n  platform/       (+ connectors/, controllers/, services/)\n  contact/\n  scene/\n  message/        (+ processors/, services/)\n  message-router/ (+ services/, entities/, dto/)\n  notification/ (+ gateways/)\n  storage/\n  audit/\n  health/\n  common/\n  config/         (+ migrations/ for some TypeORM migrations)\nmigrations/       (root-level TypeORM migrations)\ntest/             (*.e2e-spec.ts)\nscripts/          (self-test shell/js)\ndocs/             (progress & specs; also architecture.md, api-spec.md, database-schema.md at repo root)\n\nAPI & Dev:\n- Global HTTP prefix: api/v1\n- Swagger UI (non-production): /api-docs\n- WebSocket path: see main.ts / NotificationGateway (socket.io under api/v1)\n\nCurrent Gaps (high level):\n- End-to-end verification: style job pipeline, inbound → router → reply → platform send\n- Some platforms still mock; SMS may be mock\n- Observability (metrics/tracing/Sentry) and e2e coverage still thin\n\nConventions:\n- Tenant isolation: every query must filter by authenticated userId\n- Follow .cursorrules at repo root; use TypeORM migrations, not synchronize for prod intent",
+  "project": "Digital Twin Backend",
+  "purpose": "AI-assisted social message automation: style learning, routing, reply generation with review, platform connectors. Backend-only; frontend is out of repo.",
+  "techStack": [
+    "NestJS 11",
+    "TypeScript",
+    "TypeORM",
+    "PostgreSQL",
+    "Redis",
+    "BullMQ",
+    "MinIO",
+    "Qdrant",
+    "Anthropic Claude SDK",
+    "JWT / Passport",
+    "Socket.io",
+    "Swagger OpenAPI",
+    "Winston",
+    "Jest / supertest"
+  ],
+  "mainModules": [
+    "auth",
+    "user",
+    "style",
+    "reply",
+    "platform",
+    "contact",
+    "scene",
+    "message",
+    "message-router",
+    "notification",
+    "storage",
+    "audit",
+    "health",
+    "common",
+    "config"
+  ],
+  "directoryStructure": "src/{main.ts,app.module.ts,auth,user,style,reply,platform,contact,scene,message,message-router,notification,storage,audit,health,common,config}; migrations/; test/; scripts/; docs/; root: architecture.md, api-spec.md, database-schema.md",
+  "api": {
+    "globalPrefix": "api/v1",
+    "swaggerPath": "/api-docs",
+    "swaggerNote": "Disabled when NODE_ENV=production"
+  }
+}

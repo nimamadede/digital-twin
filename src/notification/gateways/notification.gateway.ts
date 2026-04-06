@@ -18,6 +18,36 @@ import { SceneService } from '../../scene/scene.service';
 const WS_NAMESPACE = '/ws';
 const USER_ROOM_PREFIX = 'user:';
 
+/** Server → client. Matches api-spec.md §9 `message:received`. */
+export interface WsMessageReceivedPayload {
+  messageId: string;
+  contactId: string;
+  contactNickname: string;
+  content: string;
+  platform: string;
+  msgType: string;
+  timestamp: string;
+}
+
+/** Server → client. Matches api-spec.md §9 `reply:generated`. */
+export interface WsReplyGeneratedPayload {
+  replyId: string;
+  messageId: string;
+  contactNickname: string;
+  incomingMessage: string;
+  candidates: Array<{ index: number; content: string; confidence: number }>;
+  autoApprove: boolean;
+  expiresAt: string;
+}
+
+/** Server → client. Matches api-spec.md §9 `reply:sent`. */
+export interface WsReplySentPayload {
+  replyId: string;
+  status: string;
+  sentContent: string | null;
+  sentAt: string | null;
+}
+
 export interface WsAuthPayload {
   sub: string;
   phone: string;
@@ -102,6 +132,18 @@ export class NotificationGateway
     this.emitToUser(userId, 'notification', payload);
   }
 
+  emitMessageReceived(userId: string, payload: WsMessageReceivedPayload): void {
+    this.emitToUser(userId, 'message:received', payload);
+  }
+
+  emitReplyGenerated(userId: string, payload: WsReplyGeneratedPayload): void {
+    this.emitToUser(userId, 'reply:generated', payload);
+  }
+
+  emitReplySent(userId: string, payload: WsReplySentPayload): void {
+    this.emitToUser(userId, 'reply:sent', payload);
+  }
+
   private getTokenFromHandshake(client: Socket): string | null {
     const auth = client.handshake?.auth as { token?: string } | undefined;
     const raw = auth?.token;
@@ -127,7 +169,12 @@ export class NotificationGateway
         action: 'approve',
         selectedIndex: payload.selectedIndex,
       });
-      this.emitToUser(userId, 'reply:sent', result);
+      this.emitReplySent(userId, {
+        replyId: result.replyId,
+        status: result.status,
+        sentContent: result.sentContent,
+        sentAt: result.sentAt,
+      });
       return { ok: true, data: result };
     } catch (err) {
       this.logger.warn(`reply:approve failed: ${(err as Error).message}`);
@@ -165,7 +212,12 @@ export class NotificationGateway
         action: 'edit',
         editedContent: payload.content,
       });
-      this.emitToUser(userId, 'reply:sent', result);
+      this.emitReplySent(userId, {
+        replyId: result.replyId,
+        status: result.status,
+        sentContent: result.sentContent,
+        sentAt: result.sentAt,
+      });
       return { ok: true, data: result };
     } catch (err) {
       this.logger.warn(`reply:edit failed: ${(err as Error).message}`);

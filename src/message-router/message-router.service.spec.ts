@@ -13,6 +13,7 @@ import { SceneService } from '../scene/scene.service';
 import { MessageService } from '../message/message.service';
 import { ReplyService } from '../reply/reply.service';
 import { PlatformService } from '../platform/platform.service';
+import { NotificationGateway } from '../notification/gateways/notification.gateway';
 
 jest.mock('uuid', () => ({ v4: () => 'mock-uuid-v4' }));
 
@@ -189,6 +190,14 @@ describe('MessageRouterService', () => {
           provide: PlatformService,
           useValue: {
             sendOutboundText: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        {
+          provide: NotificationGateway,
+          useValue: {
+            emitMessageReceived: jest.fn(),
+            emitReplyGenerated: jest.fn(),
+            emitReplySent: jest.fn(),
           },
         },
       ],
@@ -412,6 +421,7 @@ describe('MessageRouterService', () => {
       });
       (messageService.createIncoming as jest.Mock).mockResolvedValue({
         id: 'msg-new',
+        createdAt: new Date('2026-04-06T10:00:00.000Z'),
       });
       (routeExecutor.execute as jest.Mock).mockResolvedValue({
         action: 'auto_reply',
@@ -422,15 +432,20 @@ describe('MessageRouterService', () => {
       const replyService = moduleRef.get<ReplyService>(ReplyService);
       (replyService.generate as jest.Mock).mockResolvedValue({
         replyId: 'reply-new',
+        candidates: [{ index: 0, content: '好的', confidence: 0.9 }],
+        expiresAt: '2026-04-06T10:10:00.000Z',
       });
       (replyService.review as jest.Mock).mockResolvedValue({
+        replyId: 'reply-new',
         status: 'sent',
         sentContent: '好的',
+        sentAt: '2026-04-06T10:00:01.000Z',
       });
       (logRepo.findOne as jest.Mock).mockResolvedValue(mockLog);
       (logRepo.save as jest.Mock).mockResolvedValue(mockLog);
 
       const platformService = moduleRef.get<PlatformService>(PlatformService);
+      const notificationGateway = moduleRef.get<NotificationGateway>(NotificationGateway);
 
       const result = await service.processInboundMessage(userId, {
         platform: 'wechat',
@@ -444,6 +459,25 @@ describe('MessageRouterService', () => {
         'wechat',
         'openid-1',
         '好的',
+      );
+      expect(notificationGateway.emitMessageReceived).toHaveBeenCalledWith(
+        userId,
+        expect.objectContaining({
+          messageId: 'msg-new',
+          contactId: contactId,
+          content: '你好',
+          platform: 'wechat',
+          msgType: 'text',
+        }),
+      );
+      expect(notificationGateway.emitReplySent).toHaveBeenCalledWith(
+        userId,
+        expect.objectContaining({
+          replyId: 'reply-new',
+          status: 'sent',
+          sentContent: '好的',
+          sentAt: '2026-04-06T10:00:01.000Z',
+        }),
       );
       expect(msgContactService.findOrCreateByPlatform).toHaveBeenCalledWith(
         userId,

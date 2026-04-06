@@ -23,6 +23,7 @@ describe('NotificationGateway - event handlers', () => {
   let gateway: NotificationGateway;
   let replyService: { review: jest.Mock };
   let sceneService: { activate: jest.Mock };
+  let wsEmit: jest.Mock;
 
   beforeEach(async () => {
     replyService = { review: jest.fn() };
@@ -39,8 +40,8 @@ describe('NotificationGateway - event handlers', () => {
     }).compile();
 
     gateway = module.get<NotificationGateway>(NotificationGateway);
-    gateway.server = { to: jest.fn().mockReturnValue({ emit: jest.fn() }) } as never;
-    jest.clearAllMocks();
+    wsEmit = jest.fn();
+    gateway.server = { to: jest.fn().mockReturnValue({ emit: wsEmit }) } as never;
   });
 
   // --- reply:approve ---
@@ -61,6 +62,15 @@ describe('NotificationGateway - event handlers', () => {
       });
       expect(result).toEqual({ ok: true, data: reviewResult });
       expect(gateway.server.to).toHaveBeenCalledWith(`user:${userId}`);
+      expect(wsEmit).toHaveBeenCalledWith(
+        'reply:sent',
+        expect.objectContaining({
+          replyId,
+          status: 'sent',
+          sentContent: '好的',
+          sentAt: '2026-03-15T00:00:00.000Z',
+        }),
+      );
     });
 
     it('should return error when not authenticated', async () => {
@@ -137,6 +147,14 @@ describe('NotificationGateway - event handlers', () => {
       });
       expect(result).toEqual({ ok: true, data: reviewResult });
       expect(gateway.server.to).toHaveBeenCalledWith(`user:${userId}`);
+      expect(wsEmit).toHaveBeenCalledWith(
+        'reply:sent',
+        expect.objectContaining({
+          replyId,
+          status: 'edited',
+          sentContent: '改后内容',
+        }),
+      );
     });
 
     it('should return error when not authenticated', async () => {

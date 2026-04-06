@@ -174,6 +174,7 @@ describe('ReplyService', () => {
       expect(replyRepo.save).toHaveBeenCalledWith(created);
       expect(result.replyId).toBe('new-reply-id');
       expect(result.candidates).toEqual(mockCandidates);
+      expect(result.expiresAt).toBe(created.expiresAt.toISOString());
     });
   });
 

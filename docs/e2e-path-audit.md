@@ -32,7 +32,7 @@ npm run build
 npm test -- --testPathPatterns=message-router
 ```
 
-## Next action (plan step 3+)
+## Next action (plan step 4+)
 
-- Align WebSocket payloads with `api-spec.md` (section 9).
+- SMS: per-phone rate limits and production provider hook (see auth module).
 - WeCom callback: decrypt XML and dispatch into `processInboundMessage` (needs `userId` / tenant mapping strategy).

@@ -12,6 +12,7 @@ import { SceneModule } from '../scene/scene.module';
 import { MessageModule } from '../message/message.module';
 import { ReplyModule } from '../reply/reply.module';
 import { PlatformModule } from '../platform/platform.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { PlatformModule } from '../platform/platform.module';
     MessageModule,
     ReplyModule,
     PlatformModule,
+    NotificationModule,
   ],
   controllers: [MessageRouterController],
   providers: [

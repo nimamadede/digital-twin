@@ -1972,6 +1972,17 @@ const socket = io('wss://api.example.com/ws', {
 }
 ```
 
+**reply:sent**
+
+```json
+{
+  "replyId": "uuid-string",
+  "status": "sent",
+  "sentContent": "在的，怎么了？",
+  "sentAt": "2026-03-14T10:00:30.000Z"
+}
+```
+
 **style:analysis:progress**
 
 ```json
@@ -1980,6 +1991,18 @@ const socket = io('wss://api.example.com/ws', {
   "progress": 65,
   "stage": "extracting_features",
   "message": "正在提取语言特征..."
+}
+```
+
+**style:analysis:completed**
+
+```json
+{
+  "taskId": "uuid-string",
+  "profileId": "uuid-string",
+  "status": "success",
+  "message": "风格画像已更新",
+  "timestamp": "2026-03-14T10:02:00.000Z"
 }
 ```
 

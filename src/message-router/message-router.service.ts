@@ -16,6 +16,7 @@ import { SceneService } from '../scene/scene.service';
 import { MessageService } from '../message/message.service';
 import { ReplyService } from '../reply/reply.service';
 import { PlatformService } from '../platform/platform.service';
+import { NotificationGateway } from '../notification/gateways/notification.gateway';
 import type { RoutingLogQueryDto } from './dto/routing-log-query.dto';
 import type { InboundMessageDto } from './dto/inbound-message.dto';
 import type { CreateRoutingRuleDto } from './dto/create-routing-rule.dto';
@@ -44,6 +45,7 @@ export class MessageRouterService {
     private readonly messageService: MessageService,
     private readonly replyService: ReplyService,
     private readonly platformService: PlatformService,
+    private readonly notificationGateway: NotificationGateway,
   ) {}
 
   isPaused(userId: string): boolean {
@@ -337,6 +339,16 @@ export class MessageRouterService {
       msgType,
     );
 
+    this.notificationGateway.emitMessageReceived(userId, {
+      messageId: message.id,
+      contactId: contact.id,
+      contactNickname: contact.nickname,
+      content,
+      platform,
+      msgType,
+      timestamp: message.createdAt.toISOString(),
+    });
+
     const rules = await this.ruleRepo.find({
       where: { userId },
       order: { priority: 'ASC' },
@@ -418,6 +430,12 @@ export class MessageRouterService {
             gen.replyId,
             review.sentContent,
           );
+          this.notificationGateway.emitReplySent(userId, {
+            replyId: gen.replyId,
+            status: review.status,
+            sentContent: review.sentContent,
+            sentAt: review.sentAt,
+          });
           out.replyRecordId = gen.replyId;
           out.sentContent = review.sentContent;
         }
@@ -440,6 +458,15 @@ export class MessageRouterService {
           log.replyRecordId = gen.replyId;
           await this.logRepo.save(log);
         }
+        this.notificationGateway.emitReplyGenerated(userId, {
+          replyId: gen.replyId,
+          messageId: message.id,
+          contactNickname: contact.nickname,
+          incomingMessage: content,
+          candidates: gen.candidates,
+          autoApprove: false,
+          expiresAt: gen.expiresAt ?? '',
+        });
         out.replyRecordId = gen.replyId;
       } catch (err) {
         this.logger.error('Pending-review generate failed', err as Error);

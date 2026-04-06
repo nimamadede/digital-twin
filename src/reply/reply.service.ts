@@ -27,6 +27,7 @@ export interface GenerateReplyResult {
   candidates: CandidateReply[];
   profileUsed: string | null;
   sceneUsed: string | null;
+  expiresAt: string | null;
 }
 
 export interface PendingReplyItem {
@@ -172,6 +173,7 @@ export class ReplyService {
       candidates,
       profileUsed: profileId,
       sceneUsed: sceneId,
+      expiresAt: saved.expiresAt?.toISOString() ?? null,
     };
   }
 

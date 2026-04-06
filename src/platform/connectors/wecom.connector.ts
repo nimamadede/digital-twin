@@ -186,6 +186,15 @@ export class WeComConnector extends BaseConnector {
     return [];
   }
 
+  /**
+   * Send text to a WeCom user. Stub until qyapi message API is implemented.
+   */
+  async sendTextMessage(platformContactId: string, text: string): Promise<void> {
+    this.logger.log(
+      `WeCom sendTextMessage (stub): to=${platformContactId} len=${text.length}`,
+    );
+  }
+
   consumePendingAuth(authId: string): void {
     pendingAuths.delete(authId);
   }

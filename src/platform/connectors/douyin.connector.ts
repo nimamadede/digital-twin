@@ -140,6 +140,15 @@ export class DouyinConnector extends BaseConnector {
     return { accessToken: 'mock-douyin-token', openId: 'mock-open-id' };
   }
 
+  /**
+   * Send text on Douyin channel. Stub until Open API send is implemented.
+   */
+  async sendTextMessage(platformContactId: string, text: string): Promise<void> {
+    this.logger.log(
+      `Douyin sendTextMessage (stub): to=${platformContactId} len=${text.length}`,
+    );
+  }
+
   consumePendingAuth(authId: string): void {
     pendingAuths.delete(authId);
   }

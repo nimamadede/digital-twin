@@ -12,6 +12,9 @@ import { ContactService } from '../contact/contact.service';
 import { SceneService } from '../scene/scene.service';
 import { MessageService } from '../message/message.service';
 import { ReplyService } from '../reply/reply.service';
+import { PlatformService } from '../platform/platform.service';
+
+jest.mock('uuid', () => ({ v4: () => 'mock-uuid-v4' }));
 
 const userId = 'user-uuid-1';
 const ruleId = 'rule-uuid-1';
@@ -180,6 +183,12 @@ describe('MessageRouterService', () => {
               status: 'sent',
               sentContent: '有啊，什么事？',
             }),
+          },
+        },
+        {
+          provide: PlatformService,
+          useValue: {
+            sendOutboundText: jest.fn().mockResolvedValue(undefined),
           },
         },
       ],
@@ -421,6 +430,8 @@ describe('MessageRouterService', () => {
       (logRepo.findOne as jest.Mock).mockResolvedValue(mockLog);
       (logRepo.save as jest.Mock).mockResolvedValue(mockLog);
 
+      const platformService = moduleRef.get<PlatformService>(PlatformService);
+
       const result = await service.processInboundMessage(userId, {
         platform: 'wechat',
         platformContactId: 'openid-1',
@@ -428,6 +439,12 @@ describe('MessageRouterService', () => {
         content: '你好',
       });
 
+      expect(platformService.sendOutboundText).toHaveBeenCalledWith(
+        userId,
+        'wechat',
+        'openid-1',
+        '好的',
+      );
       expect(msgContactService.findOrCreateByPlatform).toHaveBeenCalledWith(
         userId,
         'wechat',

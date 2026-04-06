@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import type {
   AuthorizeResult,
@@ -39,6 +40,7 @@ const AUTH_EXPIRES_MS = 300_000; // 5 min
 const MOCK_CONFIRM_AFTER_MS = 2000; // mock: confirm after 2s
 
 export class WechatConnector extends BaseConnector {
+  private readonly logger = new Logger(WechatConnector.name);
   readonly platform = 'wechat';
 
   async authorize(userId: string, authType: string): Promise<AuthorizeResult> {
@@ -128,6 +130,15 @@ export class WechatConnector extends BaseConnector {
       messagesProcessed: state.messagesProcessed,
       errors: state.errors,
     };
+  }
+
+  /**
+   * Deliver text to the user on WeChat. Stub until official send API is wired.
+   */
+  async sendTextMessage(platformContactId: string, text: string): Promise<void> {
+    this.logger.log(
+      `WeChat sendTextMessage (stub): to=${platformContactId} len=${text.length}`,
+    );
   }
 
   /**

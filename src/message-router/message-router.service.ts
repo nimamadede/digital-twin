@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
@@ -14,6 +15,7 @@ import { ContactService } from '../contact/contact.service';
 import { SceneService } from '../scene/scene.service';
 import { MessageService } from '../message/message.service';
 import { ReplyService } from '../reply/reply.service';
+import { PlatformService } from '../platform/platform.service';
 import type { RoutingLogQueryDto } from './dto/routing-log-query.dto';
 import type { InboundMessageDto } from './dto/inbound-message.dto';
 import type { CreateRoutingRuleDto } from './dto/create-routing-rule.dto';
@@ -27,6 +29,8 @@ const pausedByUser = new Map<string, boolean>();
 
 @Injectable()
 export class MessageRouterService {
+  private readonly logger = new Logger(MessageRouterService.name);
+
   constructor(
     @InjectRepository(RoutingLog)
     private readonly logRepo: Repository<RoutingLog>,
@@ -39,6 +43,7 @@ export class MessageRouterService {
     private readonly sceneService: SceneService,
     private readonly messageService: MessageService,
     private readonly replyService: ReplyService,
+    private readonly platformService: PlatformService,
   ) {}
 
   isPaused(userId: string): boolean {
@@ -401,6 +406,12 @@ export class MessageRouterService {
             gen.replyId,
             true,
           );
+          await this.platformService.sendOutboundText(
+            userId,
+            platform,
+            dto.platformContactId,
+            review.sentContent,
+          );
           await this.updateLogReply(
             userId,
             routeResult.routingLogId,
@@ -412,7 +423,7 @@ export class MessageRouterService {
         }
       } catch (err) {
         // Log but do not fail the whole pipeline; routing log already recorded
-        console.error('Auto-reply generate/send failed:', err);
+        this.logger.error('Auto-reply generate/send failed', err as Error);
       }
     } else if (routeResult.action === 'pending_review') {
       try {
@@ -431,7 +442,7 @@ export class MessageRouterService {
         }
         out.replyRecordId = gen.replyId;
       } catch (err) {
-        console.error('Pending-review generate failed:', err);
+        this.logger.error('Pending-review generate failed', err as Error);
       }
     }
 

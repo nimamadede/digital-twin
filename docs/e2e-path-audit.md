@@ -18,11 +18,11 @@
 | WeCom `POST wecom/callback` | Gap | `WeComConnector.handleMessageCallback` returns `null` (no decrypt, no dispatch to router). |
 | Reply DB + AI | OK | `ReplyService` persists candidates; `review` updates status and `sentContent`. |
 | Outbound DB record | OK | `createOutgoing` after auto-reply path when `sentContent` is set. |
-| **Real platform send** | Gap | No call from router/reply layer to connector send API; `PlatformService` has no outbound send. `ReplyService.review` does not invoke platform. |
+| **Real platform send** | Partial | `PlatformService.sendOutboundText` + connector `sendTextMessage` stubs (`wechat` / `wecom` / `douyin`); called from `auto_reply` path after DB outbound record. Real qyapi / vendor APIs still TODO in connectors. |
 
 ## Secondary gaps
 
-- `MessageRouterService` uses `console.error` on failures; should use Nest `Logger` per project rules.
+- ~~`MessageRouterService` uses `console.error`~~ — replaced with Nest `Logger`.
 - WeCom callback verification and message decryption are TODOs in `wecom.connector.ts`.
 
 ## Verification commands
@@ -32,6 +32,7 @@ npm run build
 npm test -- --testPathPatterns=message-router
 ```
 
-## Next action (plan step 2)
+## Next action (plan step 3+)
 
-- Add an explicit **outbound send hook** (stub or real) from the auto-reply path after content is approved, gated on connected `PlatformAuth` for the same `platform` as the contact.
+- Align WebSocket payloads with `api-spec.md` (section 9).
+- WeCom callback: decrypt XML and dispatch into `processInboundMessage` (needs `userId` / tenant mapping strategy).

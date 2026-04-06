@@ -11,6 +11,7 @@ import { ContactModule } from '../contact/contact.module';
 import { SceneModule } from '../scene/scene.module';
 import { MessageModule } from '../message/message.module';
 import { ReplyModule } from '../reply/reply.module';
+import { PlatformModule } from '../platform/platform.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ReplyModule } from '../reply/reply.module';
     SceneModule,
     MessageModule,
     ReplyModule,
+    PlatformModule,
   ],
   controllers: [MessageRouterController],
   providers: [

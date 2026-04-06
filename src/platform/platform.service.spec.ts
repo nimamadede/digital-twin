@@ -50,6 +50,7 @@ const mockConnector = {
     messagesProcessed: 0,
     errors: 0,
   }),
+  sendTextMessage: jest.fn().mockResolvedValue(undefined),
   consumePendingAuth: jest.fn(),
 } as unknown as BaseConnector;
 
@@ -110,6 +111,27 @@ describe('PlatformService', () => {
       const result = await service.list(userId);
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('sendOutboundText', () => {
+    it('should call connector sendTextMessage when platform auth exists', async () => {
+      (repo.findOne as jest.Mock).mockResolvedValue(mockPlatformAuth);
+
+      await service.sendOutboundText(userId, 'wechat', 'openid-x', 'hello');
+
+      expect(repo.findOne).toHaveBeenCalledWith({
+        where: { userId, platform: 'wechat', status: 'connected' },
+      });
+      expect(mockConnector.sendTextMessage).toHaveBeenCalledWith('openid-x', 'hello');
+    });
+
+    it('should not call connector when no connected auth', async () => {
+      (repo.findOne as jest.Mock).mockResolvedValue(null);
+
+      await service.sendOutboundText(userId, 'wechat', 'openid-x', 'hello');
+
+      expect(mockConnector.sendTextMessage).not.toHaveBeenCalled();
     });
   });
 

@@ -1,10 +1,10 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { PlatformAuth } from './entities/platform-auth.entity';
 import { WechatConnector } from './connectors/wechat.connector';
-import { DouyinConnector } from './connectors/douyin.connector';
+import type { BaseConnector } from './connectors/base.connector';
 import type { AuthorizeResult, AuthStatusResult } from './connectors/base.connector';
 import {
   PLATFORM_CONNECTOR_REGISTRY,
@@ -35,14 +35,59 @@ const PLATFORM_DISPLAY_NAMES: Record<string, string> = {
 /** In-memory: authId -> { userId, platform } for polling auth status (dev mock). */
 const pendingAuth = new Map<string, { userId: string; platform: string }>();
 
+type ConnectorWithOutbound = BaseConnector & {
+  sendTextMessage(platformContactId: string, content: string): Promise<void>;
+};
+
+function isConnectorWithOutbound(
+  connector: BaseConnector,
+): connector is ConnectorWithOutbound {
+  return typeof (connector as ConnectorWithOutbound).sendTextMessage === 'function';
+}
+
 @Injectable()
 export class PlatformService {
+  private readonly logger = new Logger(PlatformService.name);
+
   constructor(
     @InjectRepository(PlatformAuth)
     private readonly platformAuthRepo: Repository<PlatformAuth>,
     @Inject(PLATFORM_CONNECTOR_REGISTRY)
     private readonly connectors: ConnectorRegistry,
   ) {}
+
+  /**
+   * Invoke platform connector to deliver text after reply is approved.
+   * No-op with warn log when there is no connected auth for this platform.
+   */
+  async sendOutboundText(
+    userId: string,
+    platform: string,
+    platformContactId: string,
+    content: string,
+  ): Promise<void> {
+    const auth = await this.platformAuthRepo.findOne({
+      where: { userId, platform, status: 'connected' },
+    });
+    if (!auth) {
+      this.logger.warn(
+        `Outbound skipped: no connected platform auth (userId=${userId}, platform=${platform})`,
+      );
+      return;
+    }
+    const connector = this.connectors.get(platform);
+    if (!connector) {
+      this.logger.warn(`Outbound skipped: unknown platform=${platform}`);
+      return;
+    }
+    if (!isConnectorWithOutbound(connector)) {
+      this.logger.warn(
+        `Outbound skipped: connector has no sendTextMessage (platform=${platform})`,
+      );
+      return;
+    }
+    await connector.sendTextMessage(platformContactId, content);
+  }
 
   /**
    * List connected platforms for user. All queries scoped by userId.

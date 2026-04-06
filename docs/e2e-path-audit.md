@@ -1,0 +1,37 @@
+# Inbound → Router → Reply → Platform Send (path audit)
+
+> Action 1 of execution plan. Updated: 2026-04-06.
+
+## Intended path
+
+1. **Platform inbound**: WeCom/connector receives a message (webhook or poll).
+2. **Normalize & route**: `MessageRouterService.processInboundMessage` (also `POST /api/v1/router/inbound`) creates contact/message, runs `RouteExecutorService`, may trigger reply.
+3. **Reply**: `ReplyService.generate` → `ReplyService.review` (auto-approve on `auto_reply`).
+4. **Persist outbound**: `MessageService.createOutgoing` stores the sent line in DB.
+5. **Platform send**: Third-party API delivers text to the user on the platform.
+
+## Current wiring (code)
+
+| Step | Status | Notes |
+|------|--------|--------|
+| `POST router/inbound` | OK | Full chain for `auto_reply` / `pending_review` in `message-router.service.ts`. |
+| WeCom `POST wecom/callback` | Gap | `WeComConnector.handleMessageCallback` returns `null` (no decrypt, no dispatch to router). |
+| Reply DB + AI | OK | `ReplyService` persists candidates; `review` updates status and `sentContent`. |
+| Outbound DB record | OK | `createOutgoing` after auto-reply path when `sentContent` is set. |
+| **Real platform send** | Gap | No call from router/reply layer to connector send API; `PlatformService` has no outbound send. `ReplyService.review` does not invoke platform. |
+
+## Secondary gaps
+
+- `MessageRouterService` uses `console.error` on failures; should use Nest `Logger` per project rules.
+- WeCom callback verification and message decryption are TODOs in `wecom.connector.ts`.
+
+## Verification commands
+
+```bash
+npm run build
+npm test -- --testPathPatterns=message-router
+```
+
+## Next action (plan step 2)
+
+- Add an explicit **outbound send hook** (stub or real) from the auto-reply path after content is approved, gated on connected `PlatformAuth` for the same `platform` as the contact.

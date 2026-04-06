@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { PlatformAuth } from './entities/platform-auth.entity';
 import { WechatConnector } from './connectors/wechat.connector';
+import { DouyinConnector } from './connectors/douyin.connector';
 import type { BaseConnector } from './connectors/base.connector';
 import type { AuthorizeResult, AuthStatusResult } from './connectors/base.connector';
 import {
@@ -168,6 +169,28 @@ export class PlatformService {
       });
       const saved = await this.platformAuthRepo.save(auth);
       (connector as WechatConnector).consumePendingAuth(authId);
+      pendingAuth.delete(authId);
+      return {
+        authId,
+        status: 'confirmed',
+        platformAuthId: saved.id,
+      };
+    }
+    if (result.status === 'confirmed' && pending.platform === 'douyin') {
+      const auth = this.platformAuthRepo.create({
+        userId,
+        platform: 'douyin',
+        accountNickname: '抖音用户',
+        accountAvatar: 'https://example.com/mock-douyin-avatar.png',
+        accessToken: MOCK_ACCESS_TOKEN_PREFIX + uuidv4(),
+        refreshToken: null,
+        tokenExpiresAt: null,
+        status: 'connected',
+        config: {},
+        lastActiveAt: new Date(),
+      });
+      const saved = await this.platformAuthRepo.save(auth);
+      (connector as DouyinConnector).consumePendingAuth(authId);
       pendingAuth.delete(authId);
       return {
         authId,

@@ -32,7 +32,7 @@ npm run build
 npm test -- --testPathPatterns=message-router
 ```
 
-## Next action (plan step 5+)
+## Next action (plan step 6+)
 
-- Second platform: e.g. Douyin `PlatformAuth` on mock OAuth confirm; real OAuth remains TODO.
+- Refresh `docs/PROJECT_PROGRESS_AND_BACKLOG.md` vs current code (User API, Swagger, outbound stub, WS events, SMS limits, Douyin mock auth).
 - WeCom callback: decrypt XML and dispatch into `processInboundMessage` (needs `userId` / tenant mapping strategy).

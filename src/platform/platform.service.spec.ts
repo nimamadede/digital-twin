@@ -54,6 +54,33 @@ const mockConnector = {
   consumePendingAuth: jest.fn(),
 } as unknown as BaseConnector;
 
+const douyinPendingAuthId = 'douyin-pending-auth-1';
+
+const mockDouyinConnector = {
+  platform: 'douyin',
+  authorize: jest.fn().mockResolvedValue({
+    authId: douyinPendingAuthId,
+    qrcodeUrl: 'https://example.com/douyin-qr',
+    expiresIn: 300,
+    status: 'waiting_scan',
+  }),
+  getAuthStatus: jest.fn().mockResolvedValue({
+    authId: douyinPendingAuthId,
+    status: 'waiting_scan',
+  }),
+  startListener: jest.fn().mockResolvedValue(undefined),
+  stopListener: jest.fn().mockResolvedValue(undefined),
+  getListenerState: jest.fn().mockResolvedValue({
+    isListening: false,
+    startedAt: null,
+    messagesReceived: 0,
+    messagesProcessed: 0,
+    errors: 0,
+  }),
+  sendTextMessage: jest.fn().mockResolvedValue(undefined),
+  consumePendingAuth: jest.fn(),
+} as unknown as BaseConnector;
+
 describe('PlatformService', () => {
   let service: PlatformService;
   let repo: Repository<PlatformAuth>;
@@ -181,6 +208,74 @@ describe('PlatformService', () => {
       expect(result.platformAuthId).toBe(platformAuthId);
       expect(repo.create).toHaveBeenCalled();
       expect(repo.save).toHaveBeenCalled();
+    });
+  });
+
+  describe('getAuthStatus (douyin)', () => {
+    let douyinService: PlatformService;
+    let douyinRepo: Repository<PlatformAuth>;
+
+    beforeEach(async () => {
+      const douyinMap = new Map<string, BaseConnector>([
+        ['douyin', mockDouyinConnector],
+      ]);
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          PlatformService,
+          {
+            provide: getRepositoryToken(PlatformAuth),
+            useValue: {
+              find: jest.fn(),
+              findOne: jest.fn(),
+              create: jest.fn(),
+              save: jest.fn(),
+              remove: jest.fn(),
+            },
+          },
+          {
+            provide: PLATFORM_CONNECTOR_REGISTRY,
+            useValue: douyinMap,
+          },
+        ],
+      }).compile();
+
+      douyinService = module.get<PlatformService>(PlatformService);
+      douyinRepo = module.get<Repository<PlatformAuth>>(
+        getRepositoryToken(PlatformAuth),
+      );
+      jest.clearAllMocks();
+    });
+
+    it('should create douyin PlatformAuth when mock flow confirms', async () => {
+      await douyinService.authorize(userId, 'douyin', 'qrcode');
+      (mockDouyinConnector.getAuthStatus as jest.Mock).mockResolvedValue({
+        authId: douyinPendingAuthId,
+        status: 'confirmed',
+      });
+      (douyinRepo.create as jest.Mock).mockImplementation((dto) => ({
+        ...dto,
+        id: platformAuthId,
+      }));
+      (douyinRepo.save as jest.Mock).mockResolvedValue({
+        ...mockPlatformAuth,
+        id: platformAuthId,
+        platform: 'douyin',
+      });
+
+      const result = await douyinService.getAuthStatus(userId, douyinPendingAuthId);
+
+      expect(result.status).toBe('confirmed');
+      expect(result.platformAuthId).toBe(platformAuthId);
+      expect(douyinRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId,
+          platform: 'douyin',
+          status: 'connected',
+        }),
+      );
+      expect(mockDouyinConnector.consumePendingAuth).toHaveBeenCalledWith(
+        douyinPendingAuthId,
+      );
     });
   });
 

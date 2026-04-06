@@ -32,7 +32,7 @@ npm run build
 npm test -- --testPathPatterns=message-router
 ```
 
-## Next action (plan step 4+)
+## Next action (plan step 5+)
 
-- SMS: per-phone rate limits and production provider hook (see auth module).
+- Second platform: e.g. Douyin `PlatformAuth` on mock OAuth confirm; real OAuth remains TODO.
 - WeCom callback: decrypt XML and dispatch into `processInboundMessage` (needs `userId` / tenant mapping strategy).

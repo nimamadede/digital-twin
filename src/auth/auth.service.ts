@@ -20,6 +20,8 @@ import type { LoginDto } from './dto/login.dto';
 import type { ChangePasswordDto } from './dto/change-password.dto';
 
 const SMS_TTL = 300;
+/** Max SMS send attempts per phone per rolling hour (Redis INCR + EXPIRE). */
+const SMS_PER_PHONE_PER_HOUR = 10;
 const ACCESS_TOKEN_EXPIRES_SEC = 900;
 const MOCK_SMS_CODE_DEV = '123456';
 
@@ -55,7 +57,15 @@ export class AuthService {
 
   async sendSms(phone: string, purpose: string): Promise<{ expireIn: number }> {
     if (!this.isDev) {
-      throw new Error('SMS provider not configured for production');
+      throw new BadRequestException('SMS_PROVIDER_NOT_CONFIGURED');
+    }
+    const rlKey = `sms:phone_hour:${phone}`;
+    const count = await this.redis.incr(rlKey);
+    if (count === 1) {
+      await this.redis.expire(rlKey, 3600);
+    }
+    if (count > SMS_PER_PHONE_PER_HOUR) {
+      throw new BadRequestException('SMS_RATE_LIMIT');
     }
     const code = MOCK_SMS_CODE_DEV;
     const key = `sms:${purpose}:${phone}`;

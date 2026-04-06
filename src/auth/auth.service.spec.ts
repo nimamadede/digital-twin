@@ -45,6 +45,8 @@ describe('AuthService', () => {
     setex: jest.fn().mockResolvedValue('OK'),
     get: jest.fn(),
     del: jest.fn().mockResolvedValue(1),
+    incr: jest.fn().mockResolvedValue(1),
+    expire: jest.fn().mockResolvedValue(1),
   };
 
   const mockConfigService = {
@@ -92,9 +94,15 @@ describe('AuthService', () => {
   });
 
   describe('sendSms', () => {
+    beforeEach(() => {
+      mockRedis.incr.mockResolvedValue(1);
+    });
+
     it('should store code in Redis and return expireIn', async () => {
       const result = await service.sendSms(phone, 'register');
 
+      expect(mockRedis.incr).toHaveBeenCalledWith(`sms:phone_hour:${phone}`);
+      expect(mockRedis.expire).toHaveBeenCalledWith(`sms:phone_hour:${phone}`, 3600);
       expect(mockRedis.setex).toHaveBeenCalledWith(
         `sms:register:${phone}`,
         300,
@@ -111,6 +119,48 @@ describe('AuthService', () => {
         300,
         expect.any(String),
       );
+    });
+
+    it('should reject when per-phone hourly limit exceeded', async () => {
+      mockRedis.incr.mockResolvedValueOnce(11);
+
+      await expect(service.sendSms(phone, 'register')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockRedis.setex).not.toHaveBeenCalled();
+    });
+
+    it('should reject in production until SMS provider is wired', async () => {
+      mockRedis.incr.mockClear();
+      mockRedis.setex.mockClear();
+      const prodConfig = {
+        get: jest.fn((key: string) => {
+          if (key === 'nodeEnv') return 'production';
+          const map: Record<string, unknown> = {
+            'jwt.secret': 'test-jwt-secret',
+            'jwt.refreshSecret': 'test-refresh-secret',
+            'jwt.refreshExpiresIn': '30d',
+            'jwt.expiresIn': '15m',
+          };
+          return map[key];
+        }),
+      };
+      const mod = await Test.createTestingModule({
+        providers: [
+          AuthService,
+          { provide: ConfigService, useValue: prodConfig },
+          { provide: JwtService, useValue: mockJwtService },
+          { provide: UserService, useValue: mockUserService },
+          { provide: REDIS_CLIENT, useValue: mockRedis },
+        ],
+      }).compile();
+      const prodService = mod.get<AuthService>(AuthService);
+
+      await expect(prodService.sendSms(phone, 'register')).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(mockRedis.incr).not.toHaveBeenCalled();
+      expect(mockRedis.setex).not.toHaveBeenCalled();
     });
   });
 

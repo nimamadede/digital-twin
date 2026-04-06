@@ -32,7 +32,7 @@ npm run build
 npm test -- --testPathPatterns=message-router
 ```
 
-## Next action (plan step 6+)
+## Next action (implementation backlog)
 
-- 与 `docs/PROJECT_PROGRESS_AND_BACKLOG.md` 保持同步（进度文档已按 2026-04-06 主干更新）。
+- 按 `docs/OBSERVABILITY_ROADMAP.md` 分阶段接入 Sentry / Prometheus / OTel（需评审依赖与 env）。
 - WeCom callback: decrypt XML and dispatch into `processInboundMessage` (needs `userId` / tenant mapping strategy).

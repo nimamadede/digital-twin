@@ -34,5 +34,5 @@ npm test -- --testPathPatterns=message-router
 
 ## Next action (plan step 6+)
 
-- Refresh `docs/PROJECT_PROGRESS_AND_BACKLOG.md` vs current code (User API, Swagger, outbound stub, WS events, SMS limits, Douyin mock auth).
+- 与 `docs/PROJECT_PROGRESS_AND_BACKLOG.md` 保持同步（进度文档已按 2026-04-06 主干更新）。
 - WeCom callback: decrypt XML and dispatch into `processInboundMessage` (needs `userId` / tenant mapping strategy).
